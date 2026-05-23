@@ -96,9 +96,12 @@ tr:hover td{background:#fafafa;}
       <div class="header-title">華雄音樂匯 · 午餐儲值系統</div>
       <div class="header-sub" id="today-date"></div>
     </div>
-    <div class="sync-badge">
-      <div class="sync-dot busy" id="sync-dot"></div>
-      <span id="sync-status">連線中</span>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;">
+      <div class="sync-badge" style="margin-left:0;">
+        <div class="sync-dot busy" id="sync-dot"></div>
+        <span id="sync-status">連線中</span>
+      </div>
+      <button class="btn btn-sm" onclick="openSetup()" title="重新設定連線" style="padding:3px 8px;font-size:12px;">⚙</button>
     </div>
   </div>
 
@@ -268,17 +271,16 @@ function setSyncUI(st, msg){
 }
 
 // ══════════════════════════════════════════════
-//  API
+//  API（全部用 GET，避免手機 CORS 問題）
 // ══════════════════════════════════════════════
-async function apiGet(params){
+async function api(params){
   if(!API_URL) return null;
-  const r=await fetch(API_URL+'?'+new URLSearchParams(params));
-  return r.json();
-}
-async function apiPost(body){
-  if(!API_URL) return null;
-  const r=await fetch(API_URL,{method:'POST',body:JSON.stringify(body)});
-  return r.json();
+  // Google Apps Script 需要加 &t= 避免快取
+  const p = {...params, t: Date.now()};
+  const r = await fetch(API_URL + '?' + new URLSearchParams(p));
+  // GAS 有時會回傳非 JSON，先取 text 再 parse
+  const text = await r.text();
+  try { return JSON.parse(text); } catch(e) { return null; }
 }
 
 // ══════════════════════════════════════════════
@@ -288,7 +290,7 @@ async function loadRecords(){
   if(!API_URL){ records=[]; return; }
   setSyncUI('busy');
   try{
-    const res=await apiGet({action:'records', site:SITE});
+    const res=await api({action:'getRecords', site:SITE});
     if(res&&res.ok){ records=res.records||[]; setSyncUI('ok'); }
     else setSyncUI('err','載入失敗');
   }catch(e){ setSyncUI('err','無法連線'); }
@@ -366,7 +368,7 @@ async function addDeposit(){
   const btn=document.getElementById('dep-btn');
   btn.disabled=true; setSyncUI('busy');
   try{
-    const res=await apiPost({action:'saveRecord',site:SITE,person,date,type:'儲值',amount,note});
+    const res=await api({action:'saveRecord',site:SITE,person,date,type:'儲值',amount,note});
     if(res&&res.ok){
       records.push({rowIndex:res.rowIndex,date,site:SITE,person,type:'儲值',amount,note});
       toast(`✓ 已為 ${person} 儲值 $${amount.toLocaleString()}`);
@@ -401,7 +403,7 @@ async function addMeal(){
   let allOk=true;
   for(const person of PERSONS.filter(p=>mealSel.has(p))){
     try{
-      const res=await apiPost({action:'saveRecord',site:SITE,person,date,type:'午餐',amount:-price,note:note||'午餐'});
+      const res=await api({action:'saveRecord',site:SITE,person,date,type:'午餐',amount:-price,note:note||'午餐'});
       records.push({rowIndex:res?.rowIndex||null,date,site:SITE,person,type:'午餐',amount:-price,note:note||'午餐',offline:!res?.ok});
       if(!res?.ok) allOk=false;
     }catch(e){
@@ -471,7 +473,7 @@ async function delRecord(rowIndex){
   if(!confirm('確定要刪除這筆記錄嗎？\n（Google 試算表中會標記為已刪除）')) return;
   setSyncUI('busy');
   try{
-    const res=await apiPost({action:'deleteRecord',rowIndex});
+    const res=await api({action:'deleteRecord',rowIndex});
     if(res&&res.ok){ records=records.filter(r=>r.rowIndex!==rowIndex); toast('已刪除'); setSyncUI('ok'); }
     else{ toast('刪除失敗',false); setSyncUI('err'); }
   }catch(e){ toast('網路錯誤',false); setSyncUI('err'); }
@@ -501,12 +503,17 @@ async function finishSetup(){
   document.getElementById('setup-overlay').style.display='none';
   setSyncUI('busy');
   try{
-    await apiGet({action:'init'});
-    await apiPost({action:'saveConfig', site:SITE, persons:PERSONS});
+    await api({action:'init'});
     await loadRecords();
     setSyncUI('ok');
   }catch(e){ setSyncUI('err'); }
   renderOverview();
+}
+
+function openSetup(){
+  // 把目前已存的網址填回去，方便確認或修改
+  document.getElementById('setup-api-url').value = API_URL || '';
+  document.getElementById('setup-overlay').style.display='flex';
 }
 
 function skipSetup(){
