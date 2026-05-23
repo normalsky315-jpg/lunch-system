@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>午餐儲值管理系統</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;background:#f5f4f0;min-height:100vh;color:#1a1a1a;}
+.app{max-width:780px;margin:0 auto;padding:1.5rem 1rem 5rem;}
+
+/* Header */
+.header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #e0ddd5;}
+.header-icon{width:44px;height:44px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.header-title{font-size:18px;font-weight:600;line-height:1.3;}
+.header-sub{font-size:13px;color:#888;margin-top:2px;}
+.sync-badge{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px;color:#888;padding:3px 10px;border-radius:99px;border:1px solid #e0ddd5;background:#fff;white-space:nowrap;flex-shrink:0;}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;}
+.sync-dot.busy{background:#f59e0b;animation:pulse 1s infinite;}
+.sync-dot.err{background:#ef4444;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid #e0ddd5;margin-bottom:1.5rem;overflow-x:auto;}
+.tab{padding:8px 18px;font-size:14px;cursor:pointer;border:none;background:none;color:#888;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-family:inherit;white-space:nowrap;}
+.tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:500;}
+.tab:hover:not(.active){color:#1a1a1a;}
+
+/* Sections */
+.section{display:none;}
+.section.active{display:block;}
+
+/* Cards */
+.form-card{background:#fff;border:1px solid #e0ddd5;border-radius:12px;padding:1.25rem;margin-bottom:1rem;}
+.form-title{font-size:15px;font-weight:500;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group label{font-size:12px;color:#666;font-weight:500;}
+.form-group input,.form-group select,.form-group textarea{font-size:14px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;background:#fff;outline:none;transition:border .15s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#3b82f6;}
+
+/* Buttons */
+.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+.btn{padding:8px 20px;border-radius:8px;font-size:14px;cursor:pointer;border:1px solid #d1d5db;background:#f9fafb;color:#1a1a1a;transition:all .15s;font-family:inherit;}
+.btn:hover{background:#f3f4f6;}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb;}
+.btn-primary:hover{background:#1d4ed8;}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.btn-danger{background:#fef2f2;color:#dc2626;border-color:#fca5a5;}
+.btn-danger:hover{background:#fee2e2;}
+.btn-ghost{background:transparent;border-color:transparent;color:#666;}
+.btn-ghost:hover{background:#f3f4f6;border-color:#e0ddd5;}
+
+/* Summary */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.25rem;}
+.stat-card{background:#fff;border-radius:10px;padding:1rem;border:1px solid #e0ddd5;}
+.stat-label{font-size:12px;color:#888;margin-bottom:4px;}
+.stat-value{font-size:22px;font-weight:600;}
+
+/* Person Cards */
+.person-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+.person-card{background:#fff;border:1px solid #e0ddd5;border-radius:12px;padding:1rem;text-align:center;cursor:pointer;transition:all .15s;}
+.person-card:hover{border-color:#bbb;transform:translateY(-1px);}
+.person-card.debt{border-color:#fca5a5;background:#fef2f2;}
+.person-card.low{border-color:#fcd34d;background:#fffbeb;}
+.avatar{width:42px;height:42px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;}
+.person-name{font-size:13px;font-weight:500;margin-bottom:4px;}
+.person-balance{font-size:20px;font-weight:600;}
+.balance-label{font-size:11px;color:#888;margin-top:2px;}
+
+/* Colors */
+.c-ok{color:#16a34a;}.c-low{color:#d97706;}.c-debt{color:#dc2626;}
+.a-pos{color:#16a34a;font-weight:500;}.a-neg{color:#dc2626;font-weight:500;}.a-low{color:#d97706;font-weight:500;}
+
+/* Alert */
+.alert-box{background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;color:#991b1b;}
+
+/* Table */
+.table-wrap{background:#fff;border:1px solid #e0ddd5;border-radius:12px;overflow:hidden;overflow-x:auto;}
+table{width:100%;font-size:13px;border-collapse:collapse;}
+th{text-align:left;padding:10px 12px;font-weight:500;color:#666;border-bottom:1px solid #e0ddd5;font-size:12px;white-space:nowrap;}
+td{padding:9px 12px;border-bottom:1px solid #f0ede6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#fafafa;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500;}
+.badge-dep{background:#dcfce7;color:#166534;}
+.badge-meal{background:#fef9c3;color:#854d0e;}
+
+/* Pill filter */
+.person-pill{display:inline-block;padding:4px 12px;border-radius:99px;font-size:12px;cursor:pointer;border:1px solid #d1d5db;background:#f9fafb;color:#666;transition:all .15s;margin:0 4px 6px 0;}
+.person-pill.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a;font-weight:500;}
+
+/* Meal person toggle */
+.meal-person-btn{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid #e0ddd5;background:#f9fafb;cursor:pointer;transition:all .15s;user-select:none;}
+.meal-person-btn.on{border-color:#93c5fd;background:#eff6ff;}
+
+/* Empty / Loading */
+.empty-state{text-align:center;padding:2.5rem;color:#888;font-size:14px;}
+.spinner{width:20px;height:20px;border:2px solid #e0ddd5;border-top-color:#888;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;z-index:999;}
+.toast.show{opacity:1;}
+
+/* Setup overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:1rem;}
+.overlay-card{background:#fff;border-radius:16px;padding:2rem;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.15);}
+.overlay-title{font-size:18px;font-weight:600;margin-bottom:.5rem;}
+.overlay-sub{font-size:13px;color:#888;margin-bottom:1.5rem;}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:#f3f4f6;border:1px solid #e0ddd5;font-size:13px;}
+.tag-del{cursor:pointer;color:#9ca3af;font-size:16px;line-height:1;}
+.tag-del:hover{color:#dc2626;}
+.add-person-row{display:flex;gap:8px;margin-top:10px;}
+.add-person-row input{flex:1;}
+
+/* Settings tab */
+.settings-section{margin-bottom:1.5rem;}
+.settings-section-title{font-size:13px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;}
+
+/* API URL notice */
+.api-notice{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:1rem;}
+
+@media(max-width:500px){
+  .form-row,.form-row-3{grid-template-columns:1fr;}
+  .tabs{overflow-x:auto;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon" id="header-icon">🏗️</div>
+    <div style="flex:1;min-width:0;">
+      <div class="header-title" id="header-title">午餐儲值管理系統</div>
+      <div class="header-sub" id="today-date"></div>
+    </div>
+    <div class="sync-badge">
+      <div class="sync-dot busy" id="sync-dot"></div>
+      <span id="sync-status">連線中</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('overview')">總覽</button>
+    <button class="tab" onclick="switchTab('deposit')">儲值</button>
+    <button class="tab" onclick="switchTab('meal')">扣款午餐</button>
+    <button class="tab" onclick="switchTab('history')">明細記錄</button>
+    <button class="tab" onclick="switchTab('settings')">⚙ 設定</button>
+  </div>
+
+  <!-- 總覽 -->
+  <div id="tab-overview" class="section active">
+    <div id="overview-loading" class="empty-state"><span class="spinner"></span>載入中...</div>
+    <div id="overview-content" style="display:none;">
+      <div class="summary-grid" id="summary-grid"></div>
+      <div id="debt-alerts"></div>
+      <div class="person-cards" id="person-cards"></div>
+    </div>
+  </div>
+
+  <!-- 儲值 -->
+  <div id="tab-deposit" class="section">
+    <div class="form-card">
+      <div class="form-title">💰 新增儲值</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>人員</label>
+          <select id="dep-person"></select>
+        </div>
+        <div class="form-group">
+          <label>儲值日期</label>
+          <input type="date" id="dep-date"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>儲值金額（元）</label>
+          <input type="number" id="dep-amount" placeholder="例：1000" min="1"/>
+        </div>
+        <div class="form-group">
+          <label>備註（選填）</label>
+          <input type="text" id="dep-note" placeholder="例：現金繳交"/>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="dep-btn" onclick="addDeposit()">✓ 確認儲值</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 扣款 -->
+  <div id="tab-meal" class="section">
+    <div class="form-card">
+      <div class="form-title">🍱 扣款午餐費</div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>扣款日期</label>
+          <input type="date" id="meal-date"/>
+        </div>
+        <div class="form-group">
+          <label>每人費用（元）</label>
+          <input type="number" id="meal-price" value="80" min="1"/>
+        </div>
+        <div class="form-group">
+          <label>備註（選填）</label>
+          <input type="text" id="meal-note" placeholder="例：便當"/>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;color:#666;font-weight:500;display:block;margin-bottom:8px;">選擇扣款人員</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="meal-checkboxes"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="toggleAllMeal()">全選／全清</button>
+        <button class="btn btn-primary" id="meal-btn" onclick="addMeal()">− 確認扣款</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 明細 -->
+  <div id="tab-history" class="section">
+    <div style="margin-bottom:10px;" id="history-filter"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:65px;">日期</th>
+            <th style="width:70px;">人員</th>
+            <th style="width:55px;">類型</th>
+            <th style="width:72px;">金額</th>
+            <th style="width:72px;">結餘</th>
+            <th>備註</th>
+            <th style="width:48px;"></th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+      <div id="history-loading" class="empty-state"><span class="spinner"></span>載入中...</div>
+      <div id="history-empty" class="empty-state" style="display:none;">📭 尚無記錄</div>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div id="tab-settings" class="section">
+    <div id="no-api-warning" class="api-notice" style="display:none;">
+      ⚠️ 尚未設定 Google Apps Script 網址，資料將僅儲存於本機。請填入下方網址後儲存。
+    </div>
+
+    <div class="form-card">
+      <div class="settings-section-title">🔗 Google Apps Script 連線</div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Apps Script 網路應用程式網址</label>
+        <input type="url" id="cfg-api-url" placeholder="https://script.google.com/macros/s/..."/>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="testApi()">測試連線</button>
+        <button class="btn btn-primary" onclick="saveApiUrl()">儲存網址</button>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="settings-section-title">🏗️ 案場資訊</div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label>案場名稱</label>
+          <input type="text" id="cfg-site" placeholder="例：華雄天地"/>
+        </div>
+        <div class="form-group">
+          <label>案場圖示（Emoji）</label>
+          <input type="text" id="cfg-icon" placeholder="🏗️" maxlength="4"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="settings-section-title">👥 人員管理</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>目前人員清單</label>
+        <div class="tag-list" id="person-tags"></div>
+      </div>
+      <div class="add-person-row">
+        <input type="text" id="new-person-input" placeholder="輸入新增人員姓名" onkeydown="if(event.key==='Enter')addPerson()"/>
+        <button class="btn btn-primary" onclick="addPerson()">＋ 新增</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveSettings()">💾 儲存所有設定</button>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<!-- Setup 首次設定 Overlay -->
+<div class="overlay" id="setup-overlay" style="display:none;">
+  <div class="overlay-card">
+    <div class="overlay-title">👋 歡迎使用午餐儲值系統</div>
+    <div class="overlay-sub">請先完成基本設定，之後可在「設定」頁面修改</div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>案場名稱</label>
+      <input type="text" id="setup-site" placeholder="例：華雄天地"/>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Google Apps Script 網址（可稍後填寫）</label>
+      <input type="url" id="setup-api" placeholder="https://script.google.com/macros/s/..."/>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>人員清單（可稍後在設定頁面新增）</label>
+      <div class="tag-list" id="setup-tags"></div>
+      <div class="add-person-row" style="margin-top:8px;">
+        <input type="text" id="setup-person-input" placeholder="輸入人員姓名後按 Enter 或點新增" onkeydown="if(event.key==='Enter')addSetupPerson()"/>
+        <button class="btn btn-primary" onclick="addSetupPerson()">新增</button>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:1rem;">
+      <button class="btn btn-primary" onclick="finishSetup()">開始使用</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  狀態
+// ══════════════════════════════════════════════
+let CONFIG = {
+  apiUrl:  '',
+  site:    '',
+  icon:    '🏗️',
+  persons: [],
+};
+let records   = [];   // 從 API 載入的記錄
+let mealSel   = new Set();
+let histFilter= 'all';
+let setupPersons = [];
+
+// 顏色循環
+const COLORS = [
+  {bg:'#dbeafe',fg:'#1e40af'},{bg:'#fce7f3',fg:'#9d174d'},
+  {bg:'#d1fae5',fg:'#065f46'},{bg:'#fef3c7',fg:'#92400e'},
+  {bg:'#ede9fe',fg:'#4c1d95'},{bg:'#ffedd5',fg:'#9a3412'},
+  {bg:'#cffafe',fg:'#164e63'},{bg:'#fce7f3',fg:'#831843'},
+];
+function avatarStyle(i){ const c=COLORS[i%COLORS.length]; return `background:${c.bg};color:${c.fg};`; }
+function initial(name){ return name.charAt(0); }
+
+// ══════════════════════════════════════════════
+//  本機設定讀寫
+// ══════════════════════════════════════════════
+function loadLocalConfig(){
+  try{ const d=localStorage.getItem('lunch_config'); if(d) CONFIG=JSON.parse(d); }catch(e){}
+}
+function saveLocalConfig(){
+  try{ localStorage.setItem('lunch_config', JSON.stringify(CONFIG)); }catch(e){}
+}
+
+// ══════════════════════════════════════════════
+//  同步狀態 UI
+// ══════════════════════════════════════════════
+function setSyncUI(st,msg){
+  const dot=document.getElementById('sync-dot'), lbl=document.getElementById('sync-status');
+  dot.className='sync-dot'+(st==='busy'?' busy':st==='err'?' err':'');
+  lbl.textContent=msg||{ok:'已同步',busy:'同步中',err:'連線失敗'}[st];
+}
+
+// ══════════════════════════════════════════════
+//  API 呼叫
+// ══════════════════════════════════════════════
+async function apiGet(params){
+  if(!CONFIG.apiUrl) return null;
+  const url=CONFIG.apiUrl+'?'+new URLSearchParams(params);
+  const r=await fetch(url);
+  return r.json();
+}
+async function apiPost(body){
+  if(!CONFIG.apiUrl) return null;
+  const r=await fetch(CONFIG.apiUrl,{method:'POST',body:JSON.stringify(body)});
+  return r.json();
+}
+
+// ══════════════════════════════════════════════
+//  載入記錄
+// ══════════════════════════════════════════════
+async function loadRecords(){
+  if(!CONFIG.apiUrl){ records=[]; return; }
+  setSyncUI('busy');
+  try{
+    const res=await apiGet({action:'records', site:CONFIG.site});
+    if(res && res.ok){ records=res.records||[]; setSyncUI('ok'); }
+    else{ setSyncUI('err','載入失敗'); }
+  }catch(e){ setSyncUI('err','無法連線'); }
+}
+
+// ══════════════════════════════════════════════
+//  初始化畫面
+// ══════════════════════════════════════════════
+function applyConfig(){
+  document.getElementById('header-icon').textContent  = CONFIG.icon || '🏗️';
+  document.getElementById('header-title').textContent = (CONFIG.site||'案場') + ' · 午餐儲值系統';
+  document.title = (CONFIG.site||'案場') + ' 午餐儲值';
+  mealSel = new Set(CONFIG.persons);
+  renderPersonSelects();
+  renderMealCheckboxes();
+  renderSettingsPersons();
+  document.getElementById('cfg-site').value    = CONFIG.site||'';
+  document.getElementById('cfg-icon').value    = CONFIG.icon||'🏗️';
+  document.getElementById('cfg-api-url').value = CONFIG.apiUrl||'';
+  document.getElementById('no-api-warning').style.display = CONFIG.apiUrl?'none':'block';
+}
+
+function renderPersonSelects(){
+  ['dep-person'].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML=CONFIG.persons.map(p=>`<option>${p}</option>`).join('');
+  });
+}
+
+function renderMealCheckboxes(){
+  document.getElementById('meal-checkboxes').innerHTML=CONFIG.persons.map((p,i)=>`
+    <div class="meal-person-btn ${mealSel.has(p)?'on':''}" onclick="toggleMeal('${p}')">
+      <div class="avatar" style="width:26px;height:26px;font-size:11px;margin:0;${avatarStyle(i)}">${initial(p)}</div>
+      <span style="font-size:13px;font-weight:${mealSel.has(p)?500:400};color:${mealSel.has(p)?'#1d4ed8':'#666'}">${p}</span>
+      ${mealSel.has(p)?'<span style="color:#2563eb;">✓</span>':''}
+    </div>`).join('');
+}
+
+function toggleMeal(p){ mealSel.has(p)?mealSel.delete(p):mealSel.add(p); renderMealCheckboxes(); }
+function toggleAllMeal(){ mealSel.size===CONFIG.persons.length?mealSel.clear():CONFIG.persons.forEach(p=>mealSel.add(p)); renderMealCheckboxes(); }
+
+// ══════════════════════════════════════════════
+//  總覽
+// ══════════════════════════════════════════════
+function balances(){
+  const b={};
+  CONFIG.persons.forEach(p=>b[p]=0);
+  records.forEach(r=>{ if(b[r.person]!==undefined) b[r.person]+=r.amount; });
+  return b;
+}
+
+function renderOverview(){
+  document.getElementById('overview-loading').style.display='none';
+  document.getElementById('overview-content').style.display='block';
+  const b=balances();
+  const total=Object.values(b).reduce((a,x)=>a+x,0);
+  const debt=Object.values(b).filter(x=>x<0).length;
+  const low=Object.values(b).filter(x=>x>=0&&x<100).length;
+
+  document.getElementById('summary-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-label">人員總數</div><div class="stat-value">${CONFIG.persons.length}</div></div>
+    <div class="stat-card"><div class="stat-label">總餘額</div><div class="stat-value" style="color:${total<0?'#dc2626':'#1a1a1a'}">${total>=0?'+':''}${total.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">欠款人數</div><div class="stat-value" style="color:${debt?'#dc2626':'#1a1a1a'}">${debt}</div></div>
+    <div class="stat-card"><div class="stat-label">餘額不足</div><div class="stat-value" style="color:${low?'#d97706':'#1a1a1a'}">${low}</div></div>`;
+
+  document.getElementById('debt-alerts').innerHTML=CONFIG.persons.filter(p=>b[p]<0).map(p=>
+    `<div class="alert-box">⚠️ <strong>${p}</strong> 帳上欠款 <strong>${Math.abs(b[p]).toLocaleString()} 元</strong>，請盡速儲值</div>`).join('');
+
+  document.getElementById('person-cards').innerHTML=CONFIG.persons.map((p,i)=>{
+    const v=b[p]||0, cls=v<0?'debt':v<100?'low':'';
+    const tc=v<0?'c-debt':v<100?'c-low':'c-ok';
+    const lbl=v<0?'⚠ 欠款':v<100?'餘額偏低':'餘額正常';
+    return `<div class="person-card ${cls}" onclick="switchTab('history');setTimeout(()=>setHFilter('${p}'),50)">
+      <div class="avatar" style="${avatarStyle(i)}">${initial(p)}</div>
+      <div class="person-name">${p}</div>
+      <div class="person-balance ${tc}">${v>=0?'':'-'}$${Math.abs(v).toLocaleString()}</div>
+      <div class="balance-label">${lbl}</div></div>`;}).join('');
+}
+
+// ══════════════════════════════════════════════
+//  儲值
+// ══════════════════════════════════════════════
+async function addDeposit(){
+  const person=document.getElementById('dep-person').value;
+  const date  =document.getElementById('dep-date').value;
+  const amount=parseFloat(document.getElementById('dep-amount').value);
+  const note  =document.getElementById('dep-note').value.trim();
+  if(!date){ toast('請選擇日期',false); return; }
+  if(!amount||amount<=0){ toast('請輸入有效金額',false); return; }
+
+  const btn=document.getElementById('dep-btn');
+  btn.disabled=true; setSyncUI('busy');
+  try{
+    const res=await apiPost({action:'saveRecord', site:CONFIG.site, person, date, type:'儲值', amount, note});
+    if(res && res.ok){
+      records.push({rowIndex:res.rowIndex, date, site:CONFIG.site, person, type:'儲值', amount, note});
+      toast(`已為 ${person} 儲值 $${amount.toLocaleString()}`);
+      document.getElementById('dep-amount').value='';
+      document.getElementById('dep-note').value='';
+      renderOverview(); setSyncUI('ok');
+    } else {
+      // 離線模式
+      records.push({rowIndex:null, date, site:CONFIG.site, person, type:'儲值', amount, note, offline:true});
+      toast(`儲值已記錄（離線模式）`);
+      renderOverview(); setSyncUI('err','離線');
+    }
+  }catch(e){
+    records.push({rowIndex:null, date, site:CONFIG.site, person, type:'儲值', amount, note, offline:true});
+    toast('網路錯誤，已暫存本機',false); setSyncUI('err','離線');
+    renderOverview();
+  }
+  btn.disabled=false;
+}
+
+// ══════════════════════════════════════════════
+//  扣款
+// ══════════════════════════════════════════════
+async function addMeal(){
+  const date =document.getElementById('meal-date').value;
+  const price=parseFloat(document.getElementById('meal-price').value);
+  const note =document.getElementById('meal-note').value.trim();
+  if(!date){ toast('請選擇日期',false); return; }
+  if(!price||price<=0){ toast('請輸入有效費用',false); return; }
+  if(!mealSel.size){ toast('請選擇至少一位人員',false); return; }
+
+  const btn=document.getElementById('meal-btn');
+  btn.disabled=true; setSyncUI('busy');
+  let ok=true;
+  for(const person of mealSel){
+    try{
+      const res=await apiPost({action:'saveRecord', site:CONFIG.site, person, date, type:'午餐', amount:-price, note:note||'午餐'});
+      records.push({rowIndex:res?.rowIndex||null, date, site:CONFIG.site, person, type:'午餐', amount:-price, note:note||'午餐', offline:!res?.ok});
+    }catch(e){
+      records.push({rowIndex:null, date, site:CONFIG.site, person, type:'午餐', amount:-price, note:note||'午餐', offline:true});
+      ok=false;
+    }
+  }
+  toast(ok?`已扣款 ${[...mealSel].join('、')}，每人 $${price}`:`扣款已暫存本機（離線）`, ok);
+  setSyncUI(ok?'ok':'err', ok?undefined:'離線');
+  renderOverview(); renderMealCheckboxes();
+  btn.disabled=false;
+}
+
+// ══════════════════════════════════════════════
+//  明細
+// ══════════════════════════════════════════════
+function setHFilter(f){
+  histFilter=f;
+  document.querySelectorAll('.person-pill').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
+  renderHistoryBody();
+}
+
+function renderHistory(){
+  document.getElementById('history-filter').innerHTML=
+    ['all',...CONFIG.persons].map(f=>
+      `<span class="person-pill ${histFilter===f?'active':''}" data-f="${f}" onclick="setHFilter('${f}')">${f==='all'?'全部':f}</span>`
+    ).join('');
+  renderHistoryBody();
+}
+
+function renderHistoryBody(){
+  document.getElementById('history-loading').style.display='none';
+  const filtered=histFilter==='all'?records:records.filter(r=>r.person===histFilter);
+  const sorted=[...filtered].reverse();
+  const body=document.getElementById('history-body');
+  const empty=document.getElementById('history-empty');
+  if(!sorted.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  const pidx={};
+  CONFIG.persons.forEach((p,i)=>pidx[p]=i);
+
+  // 計算每筆的當下餘額
+  const tmpBal=balances();
+  const snap={};
+  [...records].reverse().forEach(r=>{
+    snap[r.rowIndex??r] = tmpBal[r.person]||0;
+    tmpBal[r.person]=(tmpBal[r.person]||0)-r.amount;
+  });
+
+  body.innerHTML=sorted.map((r,si)=>{
+    const badge=r.type==='儲值'?'<span class="badge badge-dep">儲值</span>':'<span class="badge badge-meal">午餐</span>';
+    const amtCls=r.amount>0?'a-pos':'a-neg';
+    const amtStr=(r.amount>0?'+':'')+r.amount.toLocaleString();
+    const bal=snap[r.rowIndex??r]??0;
+    const balCls=bal<0?'a-neg':bal<100?'a-low':'a-pos';
+    const i=pidx[r.person]??0;
+    const fmt=d=>{if(!d)return'';const[y,m,dd]=d.split('-');return m+'/'+dd;};
+    const delBtn=r.rowIndex?`<button class="btn btn-sm btn-danger" onclick="delRecord(${r.rowIndex})">刪除</button>`:'<span style="font-size:11px;color:#9ca3af;">離線</span>';
+    return `<tr>
+      <td>${fmt(r.date)}</td>
+      <td><div style="display:flex;align-items:center;gap:5px;"><div class="avatar" style="width:22px;height:22px;font-size:10px;margin:0;flex-shrink:0;${avatarStyle(i)}">${initial(r.person)}</div>${r.person}</div></td>
+      <td>${badge}</td>
+      <td class="${amtCls}">${amtStr}</td>
+      <td class="${balCls}">${bal<0?'-':''}$${Math.abs(bal).toLocaleString()}</td>
+      <td style="color:#666;">${r.note||'—'}</td>
+      <td>${delBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function delRecord(rowIndex){
+  if(!confirm('確定要刪除這筆記錄嗎？\n（在 Google 試算表中會標記為已刪除）')) return;
+  setSyncUI('busy');
+  try{
+    const res=await apiPost({action:'deleteRecord', rowIndex});
+    if(res&&res.ok){
+      records=records.filter(r=>r.rowIndex!==rowIndex);
+      toast('已刪除'); setSyncUI('ok');
+    } else { toast('刪除失敗',false); setSyncUI('err'); }
+  }catch(e){ toast('網路錯誤',false); setSyncUI('err'); }
+  renderHistory(); renderOverview();
+}
+
+// ══════════════════════════════════════════════
+//  設定頁
+// ══════════════════════════════════════════════
+function renderSettingsPersons(){
+  document.getElementById('person-tags').innerHTML=
+    CONFIG.persons.map((p,i)=>
+      `<span class="tag"><span>${p}</span><span class="tag-del" onclick="removePerson(${i})">×</span></span>`
+    ).join('');
+}
+
+function addPerson(){
+  const inp=document.getElementById('new-person-input');
+  const name=inp.value.trim();
+  if(!name||CONFIG.persons.includes(name)){ toast('請輸入未重複的名稱',false); return; }
+  CONFIG.persons.push(name); mealSel.add(name);
+  inp.value='';
+  renderSettingsPersons(); renderPersonSelects(); renderMealCheckboxes();
+}
+
+function removePerson(i){
+  const name=CONFIG.persons[i];
+  if(!confirm(`確定要移除「${name}」嗎？\n（不會刪除已記錄的帳目）`)) return;
+  CONFIG.persons.splice(i,1); mealSel.delete(name);
+  renderSettingsPersons(); renderPersonSelects(); renderMealCheckboxes();
+}
+
+async function saveApiUrl(){
+  CONFIG.apiUrl=document.getElementById('cfg-api-url').value.trim();
+  saveLocalConfig();
+  document.getElementById('no-api-warning').style.display=CONFIG.apiUrl?'none':'block';
+  toast('API 網址已儲存');
+  // 初始化試算表
+  if(CONFIG.apiUrl){
+    setSyncUI('busy');
+    try{ await apiGet({action:'init'}); setSyncUI('ok'); }catch(e){ setSyncUI('err'); }
+  }
+}
+
+async function testApi(){
+  const url=document.getElementById('cfg-api-url').value.trim();
+  if(!url){ toast('請先填入網址',false); return; }
+  setSyncUI('busy','測試中');
+  try{
+    const r=await fetch(url+'?action=config');
+    const d=await r.json();
+    if(d&&d.ok!==false){ toast('✓ 連線成功！'); setSyncUI('ok'); }
+    else { toast('連線失敗：'+JSON.stringify(d),false); setSyncUI('err'); }
+  }catch(e){ toast('連線失敗：'+e.message,false); setSyncUI('err'); }
+}
+
+async function saveSettings(){
+  CONFIG.site   = document.getElementById('cfg-site').value.trim() || CONFIG.site;
+  CONFIG.icon   = document.getElementById('cfg-icon').value.trim() || '🏗️';
+  CONFIG.apiUrl = document.getElementById('cfg-api-url').value.trim();
+  saveLocalConfig();
+  // 同步到試算表
+  if(CONFIG.apiUrl){
+    setSyncUI('busy');
+    try{
+      await apiPost({action:'saveConfig', site:CONFIG.site, persons:CONFIG.persons});
+      setSyncUI('ok');
+    }catch(e){ setSyncUI('err'); }
+  }
+  applyConfig();
+  toast('設定已儲存');
+  document.getElementById('no-api-warning').style.display=CONFIG.apiUrl?'none':'block';
+}
+
+// ══════════════════════════════════════════════
+//  首次設定 Overlay
+// ══════════════════════════════════════════════
+function addSetupPerson(){
+  const inp=document.getElementById('setup-person-input');
+  const name=inp.value.trim();
+  if(!name||setupPersons.includes(name)) return;
+  setupPersons.push(name); inp.value='';
+  renderSetupTags();
+}
+function renderSetupTags(){
+  document.getElementById('setup-tags').innerHTML=
+    setupPersons.map((p,i)=>
+      `<span class="tag">${p}<span class="tag-del" onclick="setupPersons.splice(${i},1);renderSetupTags()">×</span></span>`
+    ).join('');
+}
+async function finishSetup(){
+  const site=document.getElementById('setup-site').value.trim();
+  const api =document.getElementById('setup-api').value.trim();
+  if(!site){ toast('請填入案場名稱',false); return; }
+  CONFIG.site=site; CONFIG.apiUrl=api;
+  if(setupPersons.length) CONFIG.persons=setupPersons;
+  saveLocalConfig();
+  document.getElementById('setup-overlay').style.display='none';
+  applyConfig();
+  if(api){
+    setSyncUI('busy');
+    try{
+      await apiGet({action:'init'});
+      await apiPost({action:'saveConfig', site:CONFIG.site, persons:CONFIG.persons});
+      setSyncUI('ok');
+    }catch(e){ setSyncUI('err'); }
+  }
+  await loadRecords();
+  renderOverview();
+}
+
+// ══════════════════════════════════════════════
+//  切換 Tab
+// ══════════════════════════════════════════════
+function switchTab(name){
+  ['overview','deposit','meal','history','settings'].forEach((n,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',n===name);
+    document.getElementById('tab-'+n).classList.toggle('active',n===name);
+  });
+  if(name==='history') renderHistory();
+  if(name==='overview') renderOverview();
+}
+
+// ══════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════
+function toast(msg, ok=true){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=ok?'#1a1a1a':'#dc2626';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ══════════════════════════════════════════════
+//  啟動
+// ══════════════════════════════════════════════
+(async function init(){
+  document.getElementById('today-date').textContent=
+    new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  document.getElementById('dep-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('meal-date').value=new Date().toISOString().split('T')[0];
+
+  loadLocalConfig();
+
+  if(!CONFIG.site){
+    // 首次使用
+    document.getElementById('setup-overlay').style.display='flex';
+  } else {
+    applyConfig();
+    await loadRecords();
+    renderOverview();
+  }
+})();
+</script>
+</body>
+</html>
