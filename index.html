@@ -291,7 +291,7 @@ async function loadMembers(){
   try{
     const res = await api({action:'getMembers'});
     if(res && res.ok && Array.isArray(res.members) && res.members.length){
-      const active = res.members.filter(m=>m.status==='啟用').map(m=>m.name);
+      const active = res.members.filter(m=>m.active).map(m=>m.name);
       if(active.length) PERSONS = active;
     }
   }catch(e){ /* 抓不到就沿用 fallback，不擋主流程 */ }
