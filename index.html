@@ -370,6 +370,17 @@ function toggleMeal(p){ mealSel.has(p)?mealSel.delete(p):mealSel.add(p); renderM
 function toggleAllMeal(){ mealSel.size===PERSONS.length?mealSel.clear():PERSONS.forEach(p=>mealSel.add(p)); renderMealCheckboxes(); }
 
 // ══════════════════════════════════════════════
+//  儲值人員下拉選單（原本是寫死的 <option>，
+//  改成跟 meal-checkboxes 一樣，每次都用目前的 PERSONS 重新產生）
+// ══════════════════════════════════════════════
+function renderDepositSelect(){
+  const sel = document.getElementById('dep-person');
+  const prev = sel.value;
+  sel.innerHTML = PERSONS.map(p=>`<option>${p}</option>`).join('');
+  if(PERSONS.includes(prev)) sel.value = prev;
+}
+
+// ══════════════════════════════════════════════
 //  儲值
 // ══════════════════════════════════════════════
 async function addDeposit(){
@@ -520,6 +531,7 @@ async function finishSetup(){
     await api({action:'init'});
     await loadMembers();
     renderMealCheckboxes();
+    renderDepositSelect();
     await loadRecords();
     setSyncUI('ok');
   }catch(e){ setSyncUI('err'); }
@@ -560,6 +572,7 @@ function toast(msg, ok=true){
 
   if(!API_URL){
     renderMealCheckboxes();
+    renderDepositSelect();
     document.getElementById('setup-overlay').style.display='flex';
     document.getElementById('overview-loading').style.display='none';
     document.getElementById('overview-content').style.display='block';
@@ -567,6 +580,7 @@ function toast(msg, ok=true){
   } else {
     await loadMembers();
     renderMealCheckboxes();
+    renderDepositSelect();
     await loadRecords();
     renderOverview();
   }
