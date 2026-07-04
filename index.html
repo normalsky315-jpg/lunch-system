@@ -253,7 +253,7 @@ const COLORS  = [
 // ══════════════════════════════════════════════
 let API_URL   = localStorage.getItem('lunch_api_url') || '';
 let records   = [];
-let mealSel   = new Set(PERSONS);
+let mealSel   = new Set();
 let histFilter= 'all';
 
 function getToday(){ return new Date().toISOString().split('T')[0]; }
