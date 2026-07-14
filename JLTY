@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>吉隆天曜 · 午餐儲值系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #B8902A;
+  --gold-light: #C9A84C;
+  --gold-pale: #F5EDD6;
+  --bg: #F8F6F2;
+  --bg2: #FFFFFF;
+  --nav-bg: #FFFFFF;
+  --card: #FFFFFF;
+  --card2: #F8F6F2;
+  --border: #E8E0D0;
+  --border2: #D4C9A8;
+  --text: #2C2416;
+  --text-dim: #5C4E36;
+  --text-muted: #9C8C6C;
+  --green: #2E7D52;
+  --green-bg: #E8F5EE;
+  --red: #C0392B;
+  --red-bg: #FDECEA;
+  --radius: 10px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans TC', sans-serif;
+  min-height: 100vh;
+}
+/* ── Header ── */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.sync-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 20px;
+}
+.sync-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #ccc;
+  transition: background 0.3s;
+}
+.sync-dot.online { background: var(--green); box-shadow: 0 0 5px rgba(46,125,82,0.5); animation: pulse 2s infinite; }
+.sync-dot.offline { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+/* ── Nav ── */
+nav {
+  display: flex;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+.nav-btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 12px 8px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.nav-btn:hover { color: var(--text-dim); }
+.nav-btn.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  font-weight: 500;
+}
+/* ── Main ── */
+main { max-width: 680px; margin: 0 auto; padding: 20px 16px 80px; }
+.tab-content { display: none; animation: fadeIn 0.2s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+/* ── Section Card ── */
+.section-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.section-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 16px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* ── Overview Cards ── */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.person-card {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.person-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--gold-light);
+  border-radius: 3px 0 0 3px;
+}
+.person-card.low::before { background: var(--red); }
+.person-card.zero::before { background: #ccc; }
+.person-name {
+  font-size: 15px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.person-balance {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.person-balance.low { color: var(--red); }
+.person-balance.zero { color: #bbb; }
+.balance-unit { font-size: 14px; color: var(--text-muted); margin-left: 2px; font-family: 'Noto Sans TC'; font-weight: 400; }
+.total-balance-card {
+  background: var(--gold-pale);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.total-balance-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.total-balance-value {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--gold);
+}
+/* ── Forms ── */
+.form-group { margin-bottom: 14px; }
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 17px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold-light);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.12);
+}
+select option { background: white; color: var(--text); }
+/* ── Checkbox List ── */
+.check-list { display: flex; flex-direction: column; gap: 8px; }
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.check-item:hover { border-color: var(--border2); background: var(--gold-pale); }
+.check-item.checked {
+  border-color: var(--gold-light);
+  background: var(--gold-pale);
+}
+.check-item input[type="checkbox"] { display: none; }
+.check-box {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--border2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  background: white;
+}
+.check-item.checked .check-box {
+  background: var(--gold-light);
+  border-color: var(--gold-light);
+}
+.check-box::after {
+  content: '✓';
+  font-size: 13px;
+  color: white;
+  display: none;
+}
+.check-item.checked .check-box::after { display: block; }
+.check-name { font-size: 17px; color: var(--text); flex: 1; }
+/* ── Quick Toggle ── */
+.quick-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
+.quick-btn {
+  font-size: 13px;
+  color: var(--text-dim);
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.quick-btn:hover { border-color: var(--gold-light); color: var(--gold); background: var(--gold-pale); }
+/* ── Submit Button ── */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: var(--gold);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+.btn-primary:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(184,144,42,0.25); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-secondary {
+  width: 100%;
+  padding: 11px;
+  background: white;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--gold);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+.btn-secondary:hover { background: var(--gold-pale); }
+/* ── Records Table ── */
+.records-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-btn.active, .filter-btn:hover {
+  border-color: var(--gold-light);
+  color: var(--gold);
+  background: var(--gold-pale);
+}
+.records-table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  background: var(--bg);
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg); }
+.type-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.type-topup { background: var(--green-bg); color: var(--green); }
+.type-deduct { background: var(--red-bg); color: var(--red); }
+.amount-pos { color: var(--green); font-weight: 600; }
+.amount-neg { color: var(--red); font-weight: 600; }
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--text);
+  color: white;
+  font-size: 15px;
+  padding: 10px 20px;
+  border-radius: 24px;
+  z-index: 999;
+  transition: transform 0.3s ease;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.success { background: var(--green); }
+#toast.error { background: var(--red); }
+/* ── Settings ── */
+.settings-info {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.settings-info code {
+  background: var(--gold-pale);
+  color: var(--gold);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.person-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.person-tag {
+  background: var(--gold-pale);
+  border: 1px solid var(--border2);
+  color: var(--gold);
+  font-size: 14px;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+/* ── Hero Banner ── */
+.hero-banner {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0A3D75 0%, #1E6FBE 40%, #7FB9E8 75%, #D9ECFA 100%);
+}
+.hero-cloud {
+  position: absolute;
+  background: rgba(255,255,255,0.55);
+  border-radius: 50%;
+  filter: blur(1px);
+}
+.hero-cloud.c1 { width: 90px; height: 40px; top: 22px; left: 8%; }
+.hero-cloud.c2 { width: 60px; height: 30px; top: 40px; left: 13%; }
+.hero-cloud.c3 { width: 50px; height: 24px; top: 18px; left: 20%; opacity: 0.7; }
+.hero-mountains { position: absolute; bottom: 0; left: 0; width: 100%; height: 55%; }
+.hero-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.hero-title {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 37px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: #FFFFFF;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+.hero-divider {
+  width: 36px;
+  height: 2px;
+  background: var(--gold-light);
+  margin: 12px auto;
+}
+.hero-tagline {
+  font-size: 15px;
+  letter-spacing: 4px;
+  color: #EAF3FC;
+}
+@media (max-width: 400px) {
+  .overview-grid { grid-template-columns: 1fr; }
+  .person-balance { font-size: 22px; }
+  .hero-banner { height: 150px; }
+  .hero-title { font-size: 28px; letter-spacing: 5px; }
+  .hero-tagline { font-size: 13px; letter-spacing: 2px; }
+}
+</style>
+</head>
+<body>
+<div class="hero-banner">
+  <div class="hero-cloud c1"></div>
+  <div class="hero-cloud c2"></div>
+  <div class="hero-cloud c3"></div>
+  <svg class="hero-mountains" viewBox="0 0 1600 300" preserveAspectRatio="none">
+    <polygon points="0,300 0,190 200,130 420,200 650,110 880,180 1100,100 1320,170 1600,120 1600,300" fill="rgba(255,255,255,0.18)"/>
+    <polygon points="0,300 0,230 260,170 520,235 780,160 1040,220 1300,150 1600,210 1600,300" fill="rgba(255,255,255,0.30)"/>
+  </svg>
+  <div class="hero-content">
+    <div class="hero-title">吉隆天曜</div>
+    <div class="hero-divider"></div>
+    <div class="hero-tagline">天光所至　曜影流轉</div>
+  </div>
+</div>
+<header>
+  <div class="sync-badge">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncLabel">離線</span>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="switchTab('overview',this)">總覽</button>
+  <button class="nav-btn" onclick="switchTab('topup',this)">儲值</button>
+  <button class="nav-btn" onclick="switchTab('deduct',this)">扣款</button>
+  <button class="nav-btn" onclick="switchTab('records',this)">明細</button>
+  <button class="nav-btn" onclick="switchTab('settings',this)">⚙ 設定</button>
+</nav>
+
+<main>
+  <!-- 總覽 -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="section-card">
+      <div class="section-title">💰 餘額總覽</div>
+      <div class="total-balance-card">
+        <div class="total-balance-label">目前手上總金額</div>
+        <div class="total-balance-value" id="totalBalanceValue">0<span class="balance-unit">元</span></div>
+      </div>
+      <div class="overview-grid" id="overviewGrid">
+        <div class="empty-state" style="grid-column:1/-1">載入中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 儲值 -->
+  <div class="tab-content" id="tab-topup">
+    <div class="section-card">
+      <div class="section-title">💳 新增儲值</div>
+      <div class="form-group">
+        <label>人員</label>
+        <select id="topupPerson"></select>
+      </div>
+      <div class="form-group">
+        <label>儲值日期</label>
+        <input type="date" id="topupDate">
+      </div>
+      <div class="form-group">
+        <label>儲值金額（元）</label>
+        <input type="number" id="topupAmount" placeholder="例：500" min="1">
+      </div>
+      <div class="form-group">
+        <label>備註（選填）</label>
+        <input type="text" id="topupNote" placeholder="例：現金儲值">
+      </div>
+      <button class="btn-primary" onclick="submitTopup()">✓ 確認儲值</button>
+    </div>
+  </div>
+
+  <!-- 扣款 -->
+  <div class="tab-content" id="tab-deduct">
+    <div class="section-card">
+      <div class="section-title">🍱 扣款午餐費</div>
+      <div class="form-group">
+        <label>扣款日期</label>
+        <input type="date" id="deductDate">
+      </div>
+      <div class="form-group">
+        <label>每人費用（元）</label>
+        <input type="number" id="deductAmount" placeholder="例：120" min="1">
+      </div>
+      <div class="form-group">
+        <label>品項</label>
+        <select id="deductNote">
+          <option value="中餐">中餐</option>
+          <option value="晚餐">晚餐</option>
+          <option value="點心">點心</option>
+          <option value="飲料">飲料</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>選擇出席人員</label>
+        <div class="quick-toggle">
+          <button class="quick-btn" onclick="selectAll()">全選</button>
+          <button class="quick-btn" onclick="clearAll()">全清</button>
+        </div>
+        <div class="check-list" id="checkList"></div>
+      </div>
+      <button class="btn-primary" onclick="submitDeduct()">− 確認扣款</button>
+    </div>
+  </div>
+
+  <!-- 明細 -->
+  <div class="tab-content" id="tab-records">
+    <div class="section-card">
+      <div class="section-title">📋 交易明細</div>
+      <div class="records-filter" id="recordsFilter"></div>
+      <div class="records-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th><th>人員</th><th>類型</th><th>金額</th><th>結餘</th><th>備註</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody">
+            <tr><td colspan="6" class="empty-state">載入中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="tab-content" id="tab-settings">
+    <div class="section-card">
+      <div class="section-title">🔗 Google 試算表連線</div>
+      <div class="settings-info">
+        步驟：開啟你要使用的 Google 試算表 → 擴充功能 → Apps Script → 貼上下方程式碼 → 部署 → 網路應用程式 → 複製網址貼到下方<br>
+        不需要填試算表 ID，腳本會自動綁定你目前開啟、貼上程式碼的那份試算表：<code>吉隆天曜午餐系統</code>
+      </div>
+      <div class="form-group">
+        <label>Apps Script 網路應用程式網址</label>
+        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/...">
+      </div>
+      <button class="btn-primary" onclick="saveScriptUrl()">連線並開始使用</button>
+      <button class="btn-secondary" onclick="clearScriptUrl()">清除連線（切換為離線模式）</button>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">👤 新增人員</div>
+      <div class="form-group">
+        <label>目前名單</label>
+        <div class="person-tags" id="personTags"></div>
+      </div>
+      <hr class="divider">
+      <div class="form-group">
+        <label>新人員姓名</label>
+        <input type="text" id="newPersonName" placeholder="例：張小明">
+      </div>
+      <button class="btn-primary" onclick="addPerson()">＋ 新增人員</button>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">📄 Apps Script 程式碼</div>
+      <div class="settings-info" style="white-space:pre-wrap;font-size:13px;line-height:1.8;max-height:200px;overflow-y:auto;" id="scriptTemplate">載入中...</div>
+      <button class="btn-secondary" onclick="copyScript()">複製 Apps Script 程式碼</button>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// State
+// ══════════════════════════════════════════
+const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
+let PERSONS = JSON.parse(localStorage.getItem('tw_persons') || 'null') || [...DEFAULT_PERSONS];
+let records = JSON.parse(localStorage.getItem('tw_records') || '[]');
+let scriptUrl = localStorage.getItem('tw_script_url') || '';
+let isOnline = false;
+let activeFilter = 'all';
+
+// ══════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  setToday();
+  renderAll();
+  if (scriptUrl) {
+    document.getElementById('scriptUrl').value = scriptUrl;
+    syncFromSheet();
+  }
+  document.getElementById('scriptTemplate').textContent = SCRIPT_CODE;
+});
+
+function setToday() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('topupDate').value = today;
+  document.getElementById('deductDate').value = today;
+}
+
+function renderAll() {
+  renderOverview();
+  renderPersonSelects();
+  renderCheckList();
+  renderRecords();
+  renderPersonTags();
+  renderFilterBtns();
+}
+
+// ══════════════════════════════════════════
+// Tab
+// ══════════════════════════════════════════
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab === 'records') renderRecords();
+}
+
+// ══════════════════════════════════════════
+// Balances
+// ══════════════════════════════════════════
+function getBalance(person) {
+  return records
+    .filter(r => r.person === person)
+    .reduce((sum, r) => sum + (r.type === 'topup' ? r.amount : -r.amount), 0);
+}
+
+function getTotalBalance() {
+  return PERSONS.reduce((sum, p) => sum + getBalance(p), 0);
+}
+
+function renderOverview() {
+  const totalEl = document.getElementById('totalBalanceValue');
+  if (totalEl) totalEl.innerHTML = getTotalBalance().toLocaleString() + '<span class="balance-unit">元</span>';
+
+  const grid = document.getElementById('overviewGrid');
+  if (!PERSONS.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">尚無人員</div>'; return; }
+  grid.innerHTML = PERSONS.map(p => {
+    const bal = getBalance(p);
+    const cls = bal <= 0 ? 'zero' : bal < 200 ? 'low' : '';
+    return `<div class="person-card ${cls}">
+      <div class="person-name">${p}</div>
+      <div class="person-balance ${cls}">${bal.toLocaleString()}<span class="balance-unit">元</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// Person Selects & Checkboxes
+// ══════════════════════════════════════════
+function renderPersonSelects() {
+  document.getElementById('topupPerson').innerHTML =
+    PERSONS.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+function renderCheckList() {
+  document.getElementById('checkList').innerHTML = PERSONS.map(p => `
+    <label class="check-item" onclick="toggleCheck(this, event)">
+      <input type="checkbox" value="${p}">
+      <div class="check-box"></div>
+      <span class="check-name">${p}</span>
+    </label>`).join('');
+}
+
+function toggleCheck(el, event) {
+  // stop the label's native default action from also toggling the
+  // hidden checkbox a second time (double-activation on label click)
+  if (event) event.preventDefault();
+  el.classList.toggle('checked');
+  el.querySelector('input').checked = el.classList.contains('checked');
+}
+
+function selectAll() {
+  document.querySelectorAll('#checkList .check-item').forEach(el => {
+    el.classList.add('checked');
+    el.querySelector('input').checked = true;
+  });
+}
+
+function clearAll() {
+  document.querySelectorAll('#checkList .check-item').forEach(el => {
+    el.classList.remove('checked');
+    el.querySelector('input').checked = false;
+  });
+}
+
+// ══════════════════════════════════════════
+// Records
+// ══════════════════════════════════════════
+function renderFilterBtns() {
+  document.getElementById('recordsFilter').innerHTML =
+    `<button class="filter-btn ${activeFilter==='all'?'active':''}" onclick="filterRecords('all',this)">全部</button>` +
+    PERSONS.map(p => `<button class="filter-btn ${activeFilter===p?'active':''}" onclick="filterRecords('${p}',this)">${p}</button>`).join('');
+}
+
+function filterRecords(name, btn) {
+  activeFilter = name;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRecords();
+}
+
+function renderRecords() {
+  const tbody = document.getElementById('recordsBody');
+  // compute running balance per person (chronological)
+  const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date) || a.ts - b.ts);
+  const balMap = {};
+  const balById = {};
+  sorted.forEach(r => {
+    if (balMap[r.person] === undefined) balMap[r.person] = 0;
+    balMap[r.person] += r.type === 'topup' ? r.amount : -r.amount;
+    balById[r.id] = balMap[r.person];
+  });
+
+  let filtered = activeFilter === 'all' ? records : records.filter(r => r.person === activeFilter);
+  filtered = [...filtered].sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">📭 尚無記錄</td></tr>'; return;
+  }
+
+  tbody.innerHTML = filtered.map(r => {
+    const isTopup = r.type === 'topup';
+    const bal = balById[r.id];
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.person}</td>
+      <td><span class="type-badge ${isTopup?'type-topup':'type-deduct'}">${isTopup?'儲值':'扣款'}</span></td>
+      <td class="${isTopup?'amount-pos':'amount-neg'}">${isTopup?'+':'-'}${r.amount}</td>
+      <td>${typeof bal === 'number' ? bal.toLocaleString() : '-'}</td>
+      <td>${r.note || '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// Topup
+// ══════════════════════════════════════════
+async function submitTopup() {
+  const person = document.getElementById('topupPerson').value;
+  const date = document.getElementById('topupDate').value;
+  const amount = parseInt(document.getElementById('topupAmount').value);
+  const note = document.getElementById('topupNote').value.trim();
+
+  if (!person) { showToast('請選擇人員', 'error'); return; }
+  if (!date) { showToast('請選擇日期', 'error'); return; }
+  if (!amount || amount <= 0) { showToast('請輸入有效金額', 'error'); return; }
+
+  const record = { id: Date.now().toString(), type: 'topup', person, date, amount, note, ts: Date.now() };
+  records.push(record);
+  saveLocal();
+  renderAll();
+  document.getElementById('topupAmount').value = '';
+  document.getElementById('topupNote').value = '';
+  showToast('✓ 已為 ' + person + ' 儲值 ' + amount + ' 元', 'success');
+
+  if (isOnline) await pushRecord(record);
+}
+
+// ══════════════════════════════════════════
+// Deduct
+// ══════════════════════════════════════════
+async function submitDeduct() {
+  const date = document.getElementById('deductDate').value;
+  const amount = parseInt(document.getElementById('deductAmount').value);
+  const note = document.getElementById('deductNote').value.trim();
+  const checked = [...document.querySelectorAll('#checkList .check-item.checked')].map(el => el.querySelector('input').value);
+
+  if (!date) { showToast('請選擇日期', 'error'); return; }
+  if (!amount || amount <= 0) { showToast('請輸入有效金額', 'error'); return; }
+  if (!checked.length) { showToast('請至少勾選一位人員', 'error'); return; }
+
+  const newRecords = checked.map(person => ({
+    id: Date.now().toString() + '_' + person,
+    type: 'deduct', person, date, amount, note, ts: Date.now()
+  }));
+  records.push(...newRecords);
+  saveLocal();
+  renderAll();
+  clearAll();
+  document.getElementById('deductAmount').value = '';
+  document.getElementById('deductNote').value = '中餐';
+  showToast('✓ 已扣款 ' + checked.length + ' 人，每人 ' + amount + ' 元', 'success');
+
+  if (isOnline) { for (const r of newRecords) await pushRecord(r); }
+}
+
+// ══════════════════════════════════════════
+// Person Management
+// ══════════════════════════════════════════
+function renderPersonTags() {
+  document.getElementById('personTags').innerHTML =
+    PERSONS.map(p => `<span class="person-tag">${p}</span>`).join('');
+}
+
+async function addPerson() {
+  const name = document.getElementById('newPersonName').value.trim();
+  if (!name) { showToast('請輸入姓名', 'error'); return; }
+  if (PERSONS.includes(name)) { showToast('此人員已存在', 'error'); return; }
+  PERSONS.push(name);
+  localStorage.setItem('tw_persons', JSON.stringify(PERSONS));
+  renderAll();
+  document.getElementById('newPersonName').value = '';
+  showToast('✓ 已新增人員：' + name, 'success');
+
+  if (isOnline) {
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'addPerson', name }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    } catch(e) { console.warn('sync person failed', e); }
+  }
+}
+
+// ══════════════════════════════════════════
+// Google Sheets Sync
+// ══════════════════════════════════════════
+function saveScriptUrl() {
+  const url = document.getElementById('scriptUrl').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    showToast('網址格式不正確', 'error'); return;
+  }
+  scriptUrl = url;
+  localStorage.setItem('tw_script_url', url);
+  showToast('正在連線...');
+  syncFromSheet();
+}
+
+function clearScriptUrl() {
+  scriptUrl = '';
+  localStorage.removeItem('tw_script_url');
+  document.getElementById('scriptUrl').value = '';
+  setStatus(false);
+  showToast('已切換為離線模式');
+}
+
+async function syncFromSheet() {
+  if (!scriptUrl) return;
+  try {
+    const res = await fetch(scriptUrl + '?action=getAll');
+    const data = await res.json();
+    if (data.records) records = data.records;
+    if (data.persons && data.persons.length) PERSONS = data.persons;
+    localStorage.setItem('tw_records', JSON.stringify(records));
+    localStorage.setItem('tw_persons', JSON.stringify(PERSONS));
+    renderAll();
+    setStatus(true);
+    showToast('✓ 同步成功', 'success');
+  } catch(e) {
+    setStatus(false);
+    showToast('連線失敗，使用離線資料', 'error');
+  }
+}
+
+async function pushRecord(record) {
+  if (!scriptUrl) return;
+  try {
+    await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'addRecord', record }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  } catch(e) { console.warn('push failed', e); }
+}
+
+function setStatus(online) {
+  isOnline = online;
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  dot.className = 'sync-dot ' + (online ? 'online' : 'offline');
+  label.textContent = online ? '已連線' : '離線';
+}
+
+// ══════════════════════════════════════════
+// Local Storage
+// ══════════════════════════════════════════
+function saveLocal() {
+  localStorage.setItem('tw_records', JSON.stringify(records));
+}
+
+// ══════════════════════════════════════════
+// Toast
+// ══════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+function copyScript() {
+  navigator.clipboard.writeText(SCRIPT_CODE).then(() => {
+    showToast('✓ 已複製 Apps Script 程式碼', 'success');
+  }).catch(() => {
+    showToast('複製失敗，請手動選取複製', 'error');
+  });
+}
+
+// ══════════════════════════════════════════
+// Apps Script Code
+// ══════════════════════════════════════════
+const SCRIPT_CODE = `// ── 吉隆天曜午餐系統 Apps Script ──
+// 部署：在你要使用的 Google 試算表內，擴充功能 > Apps Script > 貼上本程式碼 > 部署 > 網路應用程式
+// 執行身分：我　存取對象：所有人
+// 不需要填試算表 ID，腳本會自動綁定「目前貼上此程式碼」的試算表
+
+const RECORD_SHEET = '記錄';
+const PERSON_SHEET = '人員';
+const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
+
+function doGet(e) {
+  const action = (e && e.parameter) ? e.parameter.action : null;
+  if (action === 'getAll') {
+    return ContentService.createTextOutput(
+      JSON.stringify(getAllData())
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput('OK');
+}
+
+function doPost(e) {
+  if (!e || !e.postData) return ContentService.createTextOutput('OK');
+  const body = JSON.parse(e.postData.contents);
+  if (body.action === 'addRecord') addRecord(body.record);
+  if (body.action === 'addPerson') addPerson(body.name);
+  return ContentService.createTextOutput('OK');
+}
+
+function getAllData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const recSheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
+  const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
+
+  const rData = recSheet.getDataRange().getValues();
+  const pData = perSheet.getDataRange().getValues();
+
+  const recs = rData.slice(1).filter(r=>r[0]).map(r=>({
+    id: String(r[0]), type: r[1], person: r[2],
+    date: r[3], amount: Number(r[4]), note: r[5]||'', ts: Number(r[6])
+  }));
+
+  let pList = pData.slice(1).filter(r=>r[0]).map(r=>String(r[0]));
+  if (!pList.length) {
+    pList = DEFAULT_PERSONS;
+    DEFAULT_PERSONS.forEach(n => perSheet.appendRow([n]));
+  }
+
+  return { records: recs, persons: pList };
+}
+
+function addRecord(r) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
+  sheet.appendRow([r.id, r.type, r.person, r.date, r.amount, r.note||'', r.ts]);
+}
+
+function addPerson(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
+  const existing = sheet.getDataRange().getValues().flat().map(String);
+  if (!existing.includes(name)) sheet.appendRow([name]);
+}
+
+function getOrCreateSheet(ss, name, headers) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+  }
+  return sheet;
+}`;
+</script>
+</body>
+</html>
