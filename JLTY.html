@@ -309,6 +309,31 @@ select option { background: white; color: var(--text); }
   letter-spacing: 0.5px;
 }
 .btn-secondary:hover { background: var(--gold-pale); }
+.btn-sm {
+  width: auto;
+  padding: 5px 12px;
+  background: white;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-sm:hover { background: var(--gold-pale); }
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.member-row:last-child { border-bottom: none; }
+.member-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.member-status { font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 8px; }
+.status-on { background: var(--green-bg); color: var(--green); }
+.status-off { background: var(--bg); color: var(--text-muted); }
 /* ── Records Table ── */
 .records-filter {
   display: flex;
@@ -638,17 +663,26 @@ tr:hover td { background: var(--bg); }
     </div>
 
     <div class="section-card">
-      <div class="section-title">👤 新增人員</div>
-      <div class="form-group">
-        <label>目前名單</label>
-        <div class="person-tags" id="personTags"></div>
+      <div class="section-title">👤 成員管理</div>
+      <div id="adminLocked">
+        <div class="form-group">
+          <label>管理密碼</label>
+          <input type="password" id="adminPassword" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')unlockAdmin()">
+        </div>
+        <button class="btn-primary" onclick="unlockAdmin()">解鎖成員管理</button>
       </div>
-      <hr class="divider">
-      <div class="form-group">
-        <label>新人員姓名</label>
-        <input type="text" id="newPersonName" placeholder="例：張小明">
+      <div id="adminUnlocked" style="display:none;">
+        <div class="form-group">
+          <label>目前成員</label>
+          <div id="memberList"></div>
+        </div>
+        <hr class="divider">
+        <div class="form-group">
+          <label>新增成員姓名</label>
+          <input type="text" id="newPersonName" placeholder="例：張小明">
+        </div>
+        <button class="btn-primary" onclick="addMemberAdmin()">＋ 新增成員</button>
       </div>
-      <button class="btn-primary" onclick="addPerson()">＋ 新增人員</button>
     </div>
 
     <div class="section-card">
@@ -699,7 +733,6 @@ function renderAll() {
   renderPersonSelects();
   renderCheckList();
   renderRecords();
-  renderPersonTags();
   renderFilterBtns();
 }
 
@@ -939,32 +972,94 @@ async function pushDelete(id) {
 }
 
 // ══════════════════════════════════════════
-// Person Management
+// Member Management (password-gated, mirrors admin.html)
 // ══════════════════════════════════════════
-function renderPersonTags() {
-  document.getElementById('personTags').innerHTML =
-    PERSONS.map(p => `<span class="person-tag">${p}</span>`).join('');
+let adminPassword = '';
+let allMembers = [];
+
+async function unlockAdmin() {
+  const pw = document.getElementById('adminPassword').value;
+  if (!pw) { showToast('請輸入密碼', 'error'); return; }
+  if (!scriptUrl) { showToast('請先連線 Google 試算表', 'error'); return; }
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getMembers', password: pw }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (!data || !data.ok) { showToast((data && data.msg) || '密碼錯誤', 'error'); return; }
+    adminPassword = pw;
+    allMembers = data.members;
+    document.getElementById('adminLocked').style.display = 'none';
+    document.getElementById('adminUnlocked').style.display = 'block';
+    renderMemberAdmin();
+  } catch (e) {
+    showToast('連線失敗', 'error');
+  }
 }
 
-async function addPerson() {
+function renderMemberAdmin() {
+  document.getElementById('memberList').innerHTML = allMembers.map(m => `
+    <div class="member-row">
+      <div>
+        <span class="member-name">${m.name}</span>
+        <span class="member-status ${m.active ? 'status-on' : 'status-off'}">${m.active ? '啟用' : '停用'}</span>
+      </div>
+      <button class="btn-sm" onclick="toggleMemberStatus('${m.name}', ${m.active})">${m.active ? '停用' : '啟用'}</button>
+    </div>
+  `).join('');
+}
+
+async function addMemberAdmin() {
   const name = document.getElementById('newPersonName').value.trim();
   if (!name) { showToast('請輸入姓名', 'error'); return; }
-  if (PERSONS.includes(name)) { showToast('此人員已存在', 'error'); return; }
-  PERSONS.push(name);
-  localStorage.setItem('tw_persons', JSON.stringify(PERSONS));
-  renderAll();
-  document.getElementById('newPersonName').value = '';
-  showToast('✓ 已新增人員：' + name, 'success');
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updateMembers', password: adminPassword, op: 'add', name }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      showToast('✓ 已新增成員：' + name, 'success');
+      document.getElementById('newPersonName').value = '';
+      await refreshMembers();
+    } else {
+      showToast((data && data.msg) || '新增失敗', 'error');
+    }
+  } catch (e) { showToast('連線失敗', 'error'); }
+}
 
-  if (isOnline) {
-    try {
-      await fetch(scriptUrl, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'addPerson', name }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-    } catch(e) { console.warn('sync person failed', e); }
-  }
+async function toggleMemberStatus(name, currentlyActive) {
+  const newStatus = currentlyActive ? '停用' : '啟用';
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updateMembers', password: adminPassword, op: 'setStatus', name, status: newStatus }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      showToast('✓ ' + name + ' 已設為' + newStatus, 'success');
+      await refreshMembers();
+    } else {
+      showToast((data && data.msg) || '更新失敗', 'error');
+    }
+  } catch (e) { showToast('連線失敗', 'error'); }
+}
+
+async function refreshMembers() {
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getMembers', password: adminPassword }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) { allMembers = data.members; renderMemberAdmin(); }
+  } catch (e) { /* ignore */ }
+  await syncFromSheet();
 }
 
 // ══════════════════════════════════════════
@@ -1061,6 +1156,9 @@ const SCRIPT_CODE = `// ── 吉隆天曜午餐系統 Apps Script ──
 // 執行身分：我　存取對象：所有人
 // 不需要填試算表 ID，腳本會自動綁定「目前貼上此程式碼」的試算表
 
+// ⚠️ 部署前請務必修改這裡的管理密碼，用來保護「成員管理」（新增／停用成員）
+const ADMIN_PASSWORD = '請修改這裡的管理密碼';
+
 const RECORD_SHEET = '記錄';
 const PERSON_SHEET = '人員';
 const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
@@ -1079,31 +1177,67 @@ function doPost(e) {
   if (!e || !e.postData) return ContentService.createTextOutput('OK');
   const body = JSON.parse(e.postData.contents);
   if (body.action === 'addRecord') addRecord(body.record);
-  if (body.action === 'addPerson') addPerson(body.name);
   if (body.action === 'deleteRecord') deleteRecord(body.id);
+  if (body.action === 'getMembers') {
+    if (body.password !== ADMIN_PASSWORD) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, msg: '密碼錯誤' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, members: getAllMembers() })).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (body.action === 'updateMembers') {
+    if (body.password !== ADMIN_PASSWORD) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, msg: '密碼錯誤' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (body.op === 'add') addMember(body.name);
+    if (body.op === 'setStatus') setMemberStatus(body.name, body.status);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('OK');
 }
 
 function getAllData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const recSheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
-  const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
 
   const rData = recSheet.getDataRange().getValues();
-  const pData = perSheet.getDataRange().getValues();
-
   const recs = rData.slice(1).filter(r=>r[0]).map(r=>({
     id: String(r[0]), type: r[1], person: r[2],
     date: r[3], amount: Number(r[4]), note: r[5]||'', ts: Number(r[6])
   }));
 
-  let pList = pData.slice(1).filter(r=>r[0]).map(r=>String(r[0]));
-  if (!pList.length) {
-    pList = DEFAULT_PERSONS;
-    DEFAULT_PERSONS.forEach(n => perSheet.appendRow([n]));
-  }
+  const persons = getAllMembers().filter(m => m.active).map(m => m.name);
 
-  return { records: recs, persons: pList };
+  return { records: recs, persons: persons };
+}
+
+function getAllMembers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  let pRows = perSheet.getDataRange().getValues().slice(1).filter(r=>r[0]);
+  if (!pRows.length) {
+    DEFAULT_PERSONS.forEach(n => perSheet.appendRow([n, '啟用']));
+    pRows = DEFAULT_PERSONS.map(n => [n, '啟用']);
+  }
+  return pRows.map(r => ({ name: String(r[0]), active: (r[1] || '啟用') !== '停用' }));
+}
+
+function addMember(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  const existing = sheet.getDataRange().getValues().slice(1).map(r=>String(r[0]));
+  if (!existing.includes(name)) sheet.appendRow([name, '啟用']);
+}
+
+function setMemberStatus(name, status) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(name)) {
+      sheet.getRange(i + 1, 2).setValue(status);
+      break;
+    }
+  }
 }
 
 function addRecord(r) {
@@ -1122,13 +1256,6 @@ function deleteRecord(id) {
       break;
     }
   }
-}
-
-function addPerson(name) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
-  const existing = sheet.getDataRange().getValues().flat().map(String);
-  if (!existing.includes(name)) sheet.appendRow([name]);
 }
 
 function getOrCreateSheet(ss, name, headers) {
