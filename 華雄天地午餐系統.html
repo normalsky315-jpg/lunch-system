@@ -1062,7 +1062,12 @@ async function syncFromSheet() {
   try {
     const res = await fetch(scriptUrl + '?action=getAll');
     const data = await res.json();
-    if (data.records) records = data.records;
+    if (!data || !Array.isArray(data.records)) {
+      setStatus(false);
+      showToast('連線失敗：伺服器回應異常（' + (data && data.error || '未知錯誤') + '）', 'error');
+      return;
+    }
+    records = data.records;
     if (data.persons && data.persons.length) PERSONS = data.persons;
     localStorage.setItem('hx_records', JSON.stringify(records));
     localStorage.setItem('hx_persons', JSON.stringify(PERSONS));
