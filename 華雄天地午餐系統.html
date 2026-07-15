@@ -909,16 +909,16 @@ function showToast(msg, type = '') {
 //  Apps Script Code
 // ══════════════════════════════════════════
 const SCRIPT_CODE = `// ── 華雄天地午餐系統 Apps Script ──
-// 部署：擴充功能 > Apps Script > 部署 > 網路應用程式
+// 部署：在你要使用的 Google 試算表內，擴充功能 > Apps Script > 貼上本程式碼 > 部署 > 網路應用程式
 // 執行身分：我　存取對象：所有人
+// 不需要填試算表 ID，腳本會自動綁定「目前貼上此程式碼」的試算表
 
-const SHEET_ID = '1GZk7AGS_uHiV-CMJDY1unmS_g9mP6cXHpcXRfXHa_OQ';
 const RECORD_SHEET = '記錄';
 const PERSON_SHEET = '人員';
 const DEFAULT_PERSONS = ['盧副總','呂冠美','宋嬌琦','林芝妍'];
 
 function doGet(e) {
-  const action = e.parameter.action;
+  const action = (e && e.parameter) ? e.parameter.action : null;
   if (action === 'getAll') {
     return ContentService.createTextOutput(
       JSON.stringify(getAllData())
@@ -928,6 +928,7 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  if (!e || !e.postData) return ContentService.createTextOutput('OK');
   const body = JSON.parse(e.postData.contents);
   if (body.action === 'addRecord') addRecord(body.record);
   if (body.action === 'addPerson') addPerson(body.name);
@@ -935,7 +936,7 @@ function doPost(e) {
 }
 
 function getAllData() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const recSheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
   const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
 
@@ -957,13 +958,13 @@ function getAllData() {
 }
 
 function addRecord(r) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
   sheet.appendRow([r.id, r.type, r.person, r.date, r.amount, r.note||'', r.ts]);
 }
 
 function addPerson(name) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
   const existing = sheet.getDataRange().getValues().flat().map(String);
   if (!existing.includes(name)) sheet.appendRow([name]);
