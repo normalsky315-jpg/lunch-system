@@ -173,9 +173,19 @@ tr:hover td{background:#fafafa;}
           <input type="number" id="meal-price" value="80" min="1"/>
         </div>
         <div class="form-group">
-          <label>備註（選填）</label>
-          <input type="text" id="meal-note" placeholder="例：便當"/>
+          <label>品項</label>
+          <select id="meal-note">
+            <option value="中餐">中餐</option>
+            <option value="晚餐">晚餐</option>
+            <option value="點心">點心</option>
+            <option value="飲料">飲料</option>
+            <option value="其他">其他</option>
+          </select>
         </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>備註（選填）</label>
+        <input type="text" id="meal-remark" placeholder="例：加辣、少冰"/>
       </div>
       <div style="margin-bottom:12px;">
         <label style="font-size:12px;color:#666;font-weight:500;display:block;margin-bottom:8px;">選擇扣款人員</label>
@@ -240,6 +250,9 @@ tr:hover td{background:#fafafa;}
 // ══════════════════════════════════════════════
 const SITE    = '華雄音樂匯';
 let PERSONS = ['王文崇','陳昭文','馮逸樺','鍾麗香','楊沇鍰']; // 離線 fallback，正常會被 loadMembers() 覆蓋
+// 固定設定：部署好的 Apps Script /exec 網址，寫死在這裡後，別人打開這個 HTML
+// 就會自動連上同一份試算表，不用自己再貼一次網址。設定 Overlay 仍可覆蓋（存在 localStorage）。
+const DEFAULT_API_URL = '';
 const COLORS  = [
   {bg:'#dbeafe',fg:'#1e40af'},
   {bg:'#d1fae5',fg:'#065f46'},
@@ -251,7 +264,7 @@ const COLORS  = [
 // ══════════════════════════════════════════════
 //  狀態
 // ══════════════════════════════════════════════
-let API_URL   = localStorage.getItem('lunch_api_url') || '';
+let API_URL   = localStorage.getItem('lunch_api_url') || DEFAULT_API_URL;
 let records   = [];
 let mealSel   = new Set();
 let histFilter= 'all';
@@ -320,6 +333,10 @@ function balances(){
   return b;
 }
 
+function getTotalSpent(person){
+  return records.filter(r=>r.person===person && r.type==='午餐').reduce((sum,r)=>sum+Math.abs(r.amount),0);
+}
+
 function renderOverview(){
   document.getElementById('overview-loading').style.display='none';
   document.getElementById('overview-content').style.display='block';
@@ -327,10 +344,12 @@ function renderOverview(){
   const total=Object.values(b).reduce((a,x)=>a+x,0);
   const debt=Object.values(b).filter(x=>x<0).length;
   const low=Object.values(b).filter(x=>x>=0&&x<100).length;
+  const totalSpent=PERSONS.reduce((sum,p)=>sum+getTotalSpent(p),0);
 
   document.getElementById('summary-grid').innerHTML=`
     <div class="stat-card"><div class="stat-label">人員總數</div><div class="stat-value">${PERSONS.length}</div></div>
     <div class="stat-card"><div class="stat-label">總餘額</div><div class="stat-value" style="color:${total<0?'#dc2626':'#1a1a1a'}">${total>=0?'+':''}${total.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">個人開銷總計</div><div class="stat-value">${totalSpent.toLocaleString()}</div></div>
     <div class="stat-card"><div class="stat-label">欠款人數</div><div class="stat-value" style="color:${debt?'#dc2626':'#1a1a1a'}">${debt}</div></div>
     <div class="stat-card"><div class="stat-label">餘額不足</div><div class="stat-value" style="color:${low?'#d97706':'#1a1a1a'}">${low}</div></div>`;
 
@@ -341,6 +360,7 @@ function renderOverview(){
 
   document.getElementById('person-cards').innerHTML=PERSONS.map((p,i)=>{
     const v=b[p]||0, c=av(i);
+    const spent=getTotalSpent(p);
     const cardCls=v<0?'debt':v<100?'low':'';
     const tc=v<0?'c-debt':v<100?'c-low':'c-ok';
     const lbl=v<0?'⚠ 欠款':v<100?'餘額偏低':'餘額正常';
@@ -349,6 +369,7 @@ function renderOverview(){
       <div class="person-name">${p}</div>
       <div class="person-balance ${tc}">${v>=0?'':'-'}$${Math.abs(v).toLocaleString()}</div>
       <div class="balance-label">${lbl}</div>
+      <div class="balance-label">已花費 $${spent.toLocaleString()}</div>
     </div>`;
   }).join('');
 }
@@ -419,7 +440,9 @@ async function addDeposit(){
 async function addMeal(){
   const date =document.getElementById('meal-date').value;
   const price=parseFloat(document.getElementById('meal-price').value);
-  const note =document.getElementById('meal-note').value.trim();
+  const item =document.getElementById('meal-note').value;
+  const remark=document.getElementById('meal-remark').value.trim();
+  const note = remark ? item+'－'+remark : item;
   if(!date){ toast('請選擇日期',false); return; }
   if(!price||price<=0){ toast('請輸入有效費用',false); return; }
   if(!mealSel.size){ toast('請選擇至少一位人員',false); return; }
@@ -436,6 +459,7 @@ async function addMeal(){
       allOk=false;
     }
   }
+  document.getElementById('meal-remark').value='';
   toast(allOk?`✓ 已扣款 ${[...mealSel].join('、')}，每人 $${price}`:'扣款已暫存（離線）', allOk);
   setSyncUI(allOk?'ok':'err', allOk?undefined:'離線');
   renderOverview(); renderMealCheckboxes(); btn.disabled=false;
@@ -469,7 +493,17 @@ function renderHistoryBody(){
   const pidx={}; PERSONS.forEach((p,i)=>pidx[p]=i);
   const tmpBal=balances(); const snap={};
   [...records].reverse().forEach(r=>{ snap[r.rowIndex??('_'+r.date+r.person+r.amount)]=tmpBal[r.person]||0; tmpBal[r.person]=(tmpBal[r.person]||0)-r.amount; });
-  body.innerHTML=sorted.map(r=>{
+
+  const dailyTotals={};
+  filtered.forEach(r=>{ if(r.type==='午餐') dailyTotals[r.date]=(dailyTotals[r.date]||0)+Math.abs(r.amount); });
+
+  let html=''; let lastDate=null;
+  sorted.forEach(r=>{
+    if(r.date!==lastDate){
+      lastDate=r.date;
+      const dTotal=dailyTotals[r.date]||0;
+      html+=`<tr style="background:#fffbeb;"><td colspan="7" style="font-weight:600;color:#92400e;font-size:12px;">📅 ${fmtDate(r.date)} 總花費：$${dTotal.toLocaleString()}</td></tr>`;
+    }
     const key=r.rowIndex??('_'+r.date+r.person+r.amount);
     const badge=r.type==='儲值'?'<span class="badge badge-dep">儲值</span>':'<span class="badge badge-meal">午餐</span>';
     const amtCls=r.amount>0?'a-pos':'a-neg';
@@ -480,7 +514,7 @@ function renderHistoryBody(){
     const delBtn=r.rowIndex
       ?`<button class="btn btn-sm btn-danger" onclick="delRecord(${r.rowIndex})">刪除</button>`
       :'<span style="font-size:10px;color:#9ca3af;">離線</span>';
-    return `<tr>
+    html+=`<tr>
       <td>${fmtDate(r.date)}</td>
       <td><div style="display:flex;align-items:center;gap:5px;">
         <div class="avatar" style="width:22px;height:22px;font-size:10px;margin:0;flex-shrink:0;background:${c.bg};color:${c.fg};">${initial(r.person)}</div>${r.person}
@@ -491,7 +525,8 @@ function renderHistoryBody(){
       <td style="color:#666;">${r.note||'—'}</td>
       <td>${delBtn}</td>
     </tr>`;
-  }).join('');
+  });
+  body.innerHTML=html;
 }
 
 async function delRecord(rowIndex){
