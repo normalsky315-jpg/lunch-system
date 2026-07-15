@@ -165,6 +165,11 @@ main { max-width: 680px; margin: 0 auto; padding: 20px 16px 80px; }
 }
 .person-balance.low { color: var(--red); }
 .person-balance.zero { color: #bbb; }
+.person-spent {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
 .balance-unit { font-size: 14px; color: var(--text-muted); margin-left: 2px; font-family: 'Noto Sans TC'; font-weight: 400; }
 .total-balance-card {
   background: var(--gold-pale);
@@ -304,6 +309,31 @@ select option { background: white; color: var(--text); }
   letter-spacing: 0.5px;
 }
 .btn-secondary:hover { background: var(--gold-pale); }
+.btn-sm {
+  width: auto;
+  padding: 5px 12px;
+  background: white;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-sm:hover { background: var(--gold-pale); }
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.member-row:last-child { border-bottom: none; }
+.member-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.member-status { font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 8px; }
+.status-on { background: var(--green-bg); color: var(--green); }
+.status-off { background: var(--bg); color: var(--text-muted); }
 /* ── Records Table ── */
 .records-filter {
   display: flex;
@@ -356,6 +386,25 @@ tr:hover td { background: var(--bg); }
 .type-deduct { background: var(--red-bg); color: var(--red); }
 .amount-pos { color: var(--green); font-weight: 600; }
 .amount-neg { color: var(--red); font-weight: 600; }
+.delete-btn {
+  font-size: 12px;
+  color: var(--red);
+  background: var(--red-bg);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.delete-btn:hover { background: var(--red); color: #fff; }
+.date-summary-row td {
+  background: var(--gold-pale);
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+.date-summary-row:hover td { background: var(--gold-pale); }
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -505,6 +554,10 @@ tr:hover td { background: var(--bg); }
         <div class="total-balance-label">目前手上總金額</div>
         <div class="total-balance-value" id="totalBalanceValue">0<span class="balance-unit">元</span></div>
       </div>
+      <div class="total-balance-card">
+        <div class="total-balance-label">個人開銷總計</div>
+        <div class="total-balance-value" id="totalSpentValue">0<span class="balance-unit">元</span></div>
+      </div>
       <div class="overview-grid" id="overviewGrid">
         <div class="empty-state" style="grid-column:1/-1">載入中...</div>
       </div>
@@ -554,7 +607,12 @@ tr:hover td { background: var(--bg); }
           <option value="晚餐">晚餐</option>
           <option value="點心">點心</option>
           <option value="飲料">飲料</option>
+          <option value="其他">其他</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label>備註（選填）</label>
+        <input type="text" id="deductRemark" placeholder="例：加辣、少冰">
       </div>
       <div class="form-group">
         <label>選擇出席人員</label>
@@ -577,11 +635,11 @@ tr:hover td { background: var(--bg); }
         <table>
           <thead>
             <tr>
-              <th>日期</th><th>人員</th><th>類型</th><th>金額</th><th>結餘</th><th>備註</th>
+              <th>日期</th><th>人員</th><th>類型</th><th>金額</th><th>結餘</th><th>備註</th><th></th>
             </tr>
           </thead>
           <tbody id="recordsBody">
-            <tr><td colspan="6" class="empty-state">載入中...</td></tr>
+            <tr><td colspan="7" class="empty-state">載入中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -605,17 +663,26 @@ tr:hover td { background: var(--bg); }
     </div>
 
     <div class="section-card">
-      <div class="section-title">👤 新增人員</div>
-      <div class="form-group">
-        <label>目前名單</label>
-        <div class="person-tags" id="personTags"></div>
+      <div class="section-title">👤 成員管理</div>
+      <div id="adminLocked">
+        <div class="form-group">
+          <label>管理密碼</label>
+          <input type="password" id="adminPassword" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')unlockAdmin()">
+        </div>
+        <button class="btn-primary" onclick="unlockAdmin()">解鎖成員管理</button>
       </div>
-      <hr class="divider">
-      <div class="form-group">
-        <label>新人員姓名</label>
-        <input type="text" id="newPersonName" placeholder="例：張小明">
+      <div id="adminUnlocked" style="display:none;">
+        <div class="form-group">
+          <label>目前成員</label>
+          <div id="memberList"></div>
+        </div>
+        <hr class="divider">
+        <div class="form-group">
+          <label>新增成員姓名</label>
+          <input type="text" id="newPersonName" placeholder="例：張小明">
+        </div>
+        <button class="btn-primary" onclick="addMemberAdmin()">＋ 新增成員</button>
       </div>
-      <button class="btn-primary" onclick="addPerson()">＋ 新增人員</button>
     </div>
 
     <div class="section-card">
@@ -633,9 +700,12 @@ tr:hover td { background: var(--bg); }
 // State
 // ══════════════════════════════════════════
 const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
+// 固定設定：部署好的 Apps Script /exec 網址，寫死在這裡後，別人打開這個 HTML
+// 就會自動連上同一份試算表，不用自己再貼一次網址。設定頁仍可覆蓋（存在 localStorage）。
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3sq5K_dXgwgZNn_HbOmia9Ek20HwTM-0qkcl5g0aNsS7VS0GkdVqsRp-Lpw-SGM-I/exec';
 let PERSONS = JSON.parse(localStorage.getItem('tw_persons') || 'null') || [...DEFAULT_PERSONS];
 let records = JSON.parse(localStorage.getItem('tw_records') || '[]');
-let scriptUrl = localStorage.getItem('tw_script_url') || '';
+let scriptUrl = localStorage.getItem('tw_script_url') || DEFAULT_SCRIPT_URL;
 let isOnline = false;
 let activeFilter = 'all';
 
@@ -663,7 +733,6 @@ function renderAll() {
   renderPersonSelects();
   renderCheckList();
   renderRecords();
-  renderPersonTags();
   renderFilterBtns();
 }
 
@@ -691,18 +760,33 @@ function getTotalBalance() {
   return PERSONS.reduce((sum, p) => sum + getBalance(p), 0);
 }
 
+function getTotalSpent(person) {
+  return records
+    .filter(r => r.person === person && r.type === 'deduct')
+    .reduce((sum, r) => sum + r.amount, 0);
+}
+
+function getTotalSpentAll() {
+  return PERSONS.reduce((sum, p) => sum + getTotalSpent(p), 0);
+}
+
 function renderOverview() {
   const totalEl = document.getElementById('totalBalanceValue');
   if (totalEl) totalEl.innerHTML = getTotalBalance().toLocaleString() + '<span class="balance-unit">元</span>';
+
+  const spentEl = document.getElementById('totalSpentValue');
+  if (spentEl) spentEl.innerHTML = getTotalSpentAll().toLocaleString() + '<span class="balance-unit">元</span>';
 
   const grid = document.getElementById('overviewGrid');
   if (!PERSONS.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">尚無人員</div>'; return; }
   grid.innerHTML = PERSONS.map(p => {
     const bal = getBalance(p);
+    const spent = getTotalSpent(p);
     const cls = bal <= 0 ? 'zero' : bal < 200 ? 'low' : '';
     return `<div class="person-card ${cls}">
       <div class="person-name">${p}</div>
       <div class="person-balance ${cls}">${bal.toLocaleString()}<span class="balance-unit">元</span></div>
+      <div class="person-spent">已花費 ${spent.toLocaleString()}<span class="balance-unit">元</span></div>
     </div>`;
   }).join('');
 }
@@ -778,21 +862,35 @@ function renderRecords() {
   filtered = [...filtered].sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">📭 尚無記錄</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">📭 尚無記錄</td></tr>'; return;
   }
 
-  tbody.innerHTML = filtered.map(r => {
+  const dailyTotals = {};
+  filtered.forEach(r => {
+    if (r.type === 'deduct') dailyTotals[r.date] = (dailyTotals[r.date] || 0) + r.amount;
+  });
+
+  let html = '';
+  let lastDate = null;
+  filtered.forEach(r => {
+    if (r.date !== lastDate) {
+      lastDate = r.date;
+      const total = dailyTotals[r.date] || 0;
+      html += `<tr class="date-summary-row"><td colspan="7">📅 ${r.date} 總花費：${total.toLocaleString()} 元</td></tr>`;
+    }
     const isTopup = r.type === 'topup';
     const bal = balById[r.id];
-    return `<tr>
+    html += `<tr>
       <td>${r.date}</td>
       <td>${r.person}</td>
       <td><span class="type-badge ${isTopup?'type-topup':'type-deduct'}">${isTopup?'儲值':'扣款'}</span></td>
       <td class="${isTopup?'amount-pos':'amount-neg'}">${isTopup?'+':'-'}${r.amount}</td>
       <td>${typeof bal === 'number' ? bal.toLocaleString() : '-'}</td>
       <td>${r.note || '-'}</td>
+      <td><button class="delete-btn" onclick="deleteRecordLocal('${r.id}')">刪除</button></td>
     </tr>`;
-  }).join('');
+  });
+  tbody.innerHTML = html;
 }
 
 // ══════════════════════════════════════════
@@ -825,7 +923,9 @@ async function submitTopup() {
 async function submitDeduct() {
   const date = document.getElementById('deductDate').value;
   const amount = parseInt(document.getElementById('deductAmount').value);
-  const note = document.getElementById('deductNote').value.trim();
+  const item = document.getElementById('deductNote').value;
+  const remark = document.getElementById('deductRemark').value.trim();
+  const note = remark ? item + '－' + remark : item;
   const checked = [...document.querySelectorAll('#checkList .check-item.checked')].map(el => el.querySelector('input').value);
 
   if (!date) { showToast('請選擇日期', 'error'); return; }
@@ -842,38 +942,124 @@ async function submitDeduct() {
   clearAll();
   document.getElementById('deductAmount').value = '';
   document.getElementById('deductNote').value = '中餐';
+  document.getElementById('deductRemark').value = '';
   showToast('✓ 已扣款 ' + checked.length + ' 人，每人 ' + amount + ' 元', 'success');
 
   if (isOnline) { for (const r of newRecords) await pushRecord(r); }
 }
 
 // ══════════════════════════════════════════
-// Person Management
+// Delete Record
 // ══════════════════════════════════════════
-function renderPersonTags() {
-  document.getElementById('personTags').innerHTML =
-    PERSONS.map(p => `<span class="person-tag">${p}</span>`).join('');
+async function deleteRecordLocal(id) {
+  if (!confirm('確定要刪除這筆記錄嗎？')) return;
+  records = records.filter(r => r.id !== id);
+  saveLocal();
+  renderAll();
+  showToast('✓ 已刪除', 'success');
+  if (isOnline) await pushDelete(id);
 }
 
-async function addPerson() {
+async function pushDelete(id) {
+  if (!scriptUrl) return;
+  try {
+    await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteRecord', id }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  } catch(e) { console.warn('delete push failed', e); }
+}
+
+// ══════════════════════════════════════════
+// Member Management (password-gated, mirrors admin.html)
+// ══════════════════════════════════════════
+let adminPassword = '';
+let allMembers = [];
+
+async function unlockAdmin() {
+  const pw = document.getElementById('adminPassword').value;
+  if (!pw) { showToast('請輸入密碼', 'error'); return; }
+  if (!scriptUrl) { showToast('請先連線 Google 試算表', 'error'); return; }
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getMembers', password: pw }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (!data || !data.ok) { showToast((data && data.msg) || '密碼錯誤', 'error'); return; }
+    adminPassword = pw;
+    allMembers = data.members;
+    document.getElementById('adminLocked').style.display = 'none';
+    document.getElementById('adminUnlocked').style.display = 'block';
+    renderMemberAdmin();
+  } catch (e) {
+    showToast('連線失敗', 'error');
+  }
+}
+
+function renderMemberAdmin() {
+  document.getElementById('memberList').innerHTML = allMembers.map(m => `
+    <div class="member-row">
+      <div>
+        <span class="member-name">${m.name}</span>
+        <span class="member-status ${m.active ? 'status-on' : 'status-off'}">${m.active ? '啟用' : '停用'}</span>
+      </div>
+      <button class="btn-sm" onclick="toggleMemberStatus('${m.name}', ${m.active})">${m.active ? '停用' : '啟用'}</button>
+    </div>
+  `).join('');
+}
+
+async function addMemberAdmin() {
   const name = document.getElementById('newPersonName').value.trim();
   if (!name) { showToast('請輸入姓名', 'error'); return; }
-  if (PERSONS.includes(name)) { showToast('此人員已存在', 'error'); return; }
-  PERSONS.push(name);
-  localStorage.setItem('tw_persons', JSON.stringify(PERSONS));
-  renderAll();
-  document.getElementById('newPersonName').value = '';
-  showToast('✓ 已新增人員：' + name, 'success');
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updateMembers', password: adminPassword, op: 'add', name }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      showToast('✓ 已新增成員：' + name, 'success');
+      document.getElementById('newPersonName').value = '';
+      await refreshMembers();
+    } else {
+      showToast((data && data.msg) || '新增失敗', 'error');
+    }
+  } catch (e) { showToast('連線失敗', 'error'); }
+}
 
-  if (isOnline) {
-    try {
-      await fetch(scriptUrl, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'addPerson', name }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-    } catch(e) { console.warn('sync person failed', e); }
-  }
+async function toggleMemberStatus(name, currentlyActive) {
+  const newStatus = currentlyActive ? '停用' : '啟用';
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updateMembers', password: adminPassword, op: 'setStatus', name, status: newStatus }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      showToast('✓ ' + name + ' 已設為' + newStatus, 'success');
+      await refreshMembers();
+    } else {
+      showToast((data && data.msg) || '更新失敗', 'error');
+    }
+  } catch (e) { showToast('連線失敗', 'error'); }
+}
+
+async function refreshMembers() {
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getMembers', password: adminPassword }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    if (data && data.ok) { allMembers = data.members; renderMemberAdmin(); }
+  } catch (e) { /* ignore */ }
+  await syncFromSheet();
 }
 
 // ══════════════════════════════════════════
@@ -970,6 +1156,9 @@ const SCRIPT_CODE = `// ── 吉隆天曜午餐系統 Apps Script ──
 // 執行身分：我　存取對象：所有人
 // 不需要填試算表 ID，腳本會自動綁定「目前貼上此程式碼」的試算表
 
+// ⚠️ 部署前請務必修改這裡的管理密碼，用來保護「成員管理」（新增／停用成員）
+const ADMIN_PASSWORD = '請修改這裡的管理密碼';
+
 const RECORD_SHEET = '記錄';
 const PERSON_SHEET = '人員';
 const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
@@ -988,30 +1177,67 @@ function doPost(e) {
   if (!e || !e.postData) return ContentService.createTextOutput('OK');
   const body = JSON.parse(e.postData.contents);
   if (body.action === 'addRecord') addRecord(body.record);
-  if (body.action === 'addPerson') addPerson(body.name);
+  if (body.action === 'deleteRecord') deleteRecord(body.id);
+  if (body.action === 'getMembers') {
+    if (body.password !== ADMIN_PASSWORD) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, msg: '密碼錯誤' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, members: getAllMembers() })).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (body.action === 'updateMembers') {
+    if (body.password !== ADMIN_PASSWORD) {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, msg: '密碼錯誤' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (body.op === 'add') addMember(body.name);
+    if (body.op === 'setStatus') setMemberStatus(body.name, body.status);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+  }
   return ContentService.createTextOutput('OK');
 }
 
 function getAllData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const recSheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
-  const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
 
   const rData = recSheet.getDataRange().getValues();
-  const pData = perSheet.getDataRange().getValues();
-
   const recs = rData.slice(1).filter(r=>r[0]).map(r=>({
     id: String(r[0]), type: r[1], person: r[2],
     date: r[3], amount: Number(r[4]), note: r[5]||'', ts: Number(r[6])
   }));
 
-  let pList = pData.slice(1).filter(r=>r[0]).map(r=>String(r[0]));
-  if (!pList.length) {
-    pList = DEFAULT_PERSONS;
-    DEFAULT_PERSONS.forEach(n => perSheet.appendRow([n]));
-  }
+  const persons = getAllMembers().filter(m => m.active).map(m => m.name);
 
-  return { records: recs, persons: pList };
+  return { records: recs, persons: persons };
+}
+
+function getAllMembers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const perSheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  let pRows = perSheet.getDataRange().getValues().slice(1).filter(r=>r[0]);
+  if (!pRows.length) {
+    DEFAULT_PERSONS.forEach(n => perSheet.appendRow([n, '啟用']));
+    pRows = DEFAULT_PERSONS.map(n => [n, '啟用']);
+  }
+  return pRows.map(r => ({ name: String(r[0]), active: (r[1] || '啟用') !== '停用' }));
+}
+
+function addMember(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  const existing = sheet.getDataRange().getValues().slice(1).map(r=>String(r[0]));
+  if (!existing.includes(name)) sheet.appendRow([name, '啟用']);
+}
+
+function setMemberStatus(name, status) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name','status']);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(name)) {
+      sheet.getRange(i + 1, 2).setValue(status);
+      break;
+    }
+  }
 }
 
 function addRecord(r) {
@@ -1020,11 +1246,16 @@ function addRecord(r) {
   sheet.appendRow([r.id, r.type, r.person, r.date, r.amount, r.note||'', r.ts]);
 }
 
-function addPerson(name) {
+function deleteRecord(id) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = getOrCreateSheet(ss, PERSON_SHEET, ['name']);
-  const existing = sheet.getDataRange().getValues().flat().map(String);
-  if (!existing.includes(name)) sheet.appendRow([name]);
+  const sheet = getOrCreateSheet(ss, RECORD_SHEET, ['id','type','person','date','amount','note','ts']);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
 }
 
 function getOrCreateSheet(ss, name, headers) {
