@@ -702,7 +702,7 @@ tr:hover td { background: var(--bg); }
 const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
 // 固定設定：部署好的 Apps Script /exec 網址，寫死在這裡後，別人打開這個 HTML
 // 就會自動連上同一份試算表，不用自己再貼一次網址。設定頁仍可覆蓋（存在 localStorage）。
-const DEFAULT_SCRIPT_URL = '';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3sq5K_dXgwgZNn_HbOmia9Ek20HwTM-0qkcl5g0aNsS7VS0GkdVqsRp-Lpw-SGM-I/exec';
 let PERSONS = JSON.parse(localStorage.getItem('tw_persons') || 'null') || [...DEFAULT_PERSONS];
 let records = JSON.parse(localStorage.getItem('tw_records') || '[]');
 let scriptUrl = localStorage.getItem('tw_script_url') || DEFAULT_SCRIPT_URL;
