@@ -165,6 +165,11 @@ main { max-width: 680px; margin: 0 auto; padding: 20px 16px 80px; }
 }
 .person-balance.low { color: var(--red); }
 .person-balance.zero { color: #bbb; }
+.person-spent {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
 .balance-unit { font-size: 14px; color: var(--text-muted); margin-left: 2px; font-family: 'Noto Sans TC'; font-weight: 400; }
 .total-balance-card {
   background: var(--gold-pale);
@@ -367,6 +372,14 @@ tr:hover td { background: var(--bg); }
   transition: all 0.15s;
 }
 .delete-btn:hover { background: var(--red); color: #fff; }
+.date-summary-row td {
+  background: var(--gold-pale);
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+.date-summary-row:hover td { background: var(--gold-pale); }
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -516,6 +529,10 @@ tr:hover td { background: var(--bg); }
         <div class="total-balance-label">目前手上總金額</div>
         <div class="total-balance-value" id="totalBalanceValue">0<span class="balance-unit">元</span></div>
       </div>
+      <div class="total-balance-card">
+        <div class="total-balance-label">個人開銷總計</div>
+        <div class="total-balance-value" id="totalSpentValue">0<span class="balance-unit">元</span></div>
+      </div>
       <div class="overview-grid" id="overviewGrid">
         <div class="empty-state" style="grid-column:1/-1">載入中...</div>
       </div>
@@ -565,7 +582,12 @@ tr:hover td { background: var(--bg); }
           <option value="晚餐">晚餐</option>
           <option value="點心">點心</option>
           <option value="飲料">飲料</option>
+          <option value="其他">其他</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label>備註（選填）</label>
+        <input type="text" id="deductRemark" placeholder="例：加辣、少冰">
       </div>
       <div class="form-group">
         <label>選擇出席人員</label>
@@ -644,9 +666,12 @@ tr:hover td { background: var(--bg); }
 // State
 // ══════════════════════════════════════════
 const DEFAULT_PERSONS = ['周維澤','陳昭文','林睿淇','蔡甯宸','總經理','云珠姐','李函臻','阿德'];
+// 固定設定：部署好的 Apps Script /exec 網址，寫死在這裡後，別人打開這個 HTML
+// 就會自動連上同一份試算表，不用自己再貼一次網址。設定頁仍可覆蓋（存在 localStorage）。
+const DEFAULT_SCRIPT_URL = '';
 let PERSONS = JSON.parse(localStorage.getItem('tw_persons') || 'null') || [...DEFAULT_PERSONS];
 let records = JSON.parse(localStorage.getItem('tw_records') || '[]');
-let scriptUrl = localStorage.getItem('tw_script_url') || '';
+let scriptUrl = localStorage.getItem('tw_script_url') || DEFAULT_SCRIPT_URL;
 let isOnline = false;
 let activeFilter = 'all';
 
@@ -702,18 +727,33 @@ function getTotalBalance() {
   return PERSONS.reduce((sum, p) => sum + getBalance(p), 0);
 }
 
+function getTotalSpent(person) {
+  return records
+    .filter(r => r.person === person && r.type === 'deduct')
+    .reduce((sum, r) => sum + r.amount, 0);
+}
+
+function getTotalSpentAll() {
+  return PERSONS.reduce((sum, p) => sum + getTotalSpent(p), 0);
+}
+
 function renderOverview() {
   const totalEl = document.getElementById('totalBalanceValue');
   if (totalEl) totalEl.innerHTML = getTotalBalance().toLocaleString() + '<span class="balance-unit">元</span>';
+
+  const spentEl = document.getElementById('totalSpentValue');
+  if (spentEl) spentEl.innerHTML = getTotalSpentAll().toLocaleString() + '<span class="balance-unit">元</span>';
 
   const grid = document.getElementById('overviewGrid');
   if (!PERSONS.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">尚無人員</div>'; return; }
   grid.innerHTML = PERSONS.map(p => {
     const bal = getBalance(p);
+    const spent = getTotalSpent(p);
     const cls = bal <= 0 ? 'zero' : bal < 200 ? 'low' : '';
     return `<div class="person-card ${cls}">
       <div class="person-name">${p}</div>
       <div class="person-balance ${cls}">${bal.toLocaleString()}<span class="balance-unit">元</span></div>
+      <div class="person-spent">已花費 ${spent.toLocaleString()}<span class="balance-unit">元</span></div>
     </div>`;
   }).join('');
 }
@@ -792,10 +832,22 @@ function renderRecords() {
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state">📭 尚無記錄</td></tr>'; return;
   }
 
-  tbody.innerHTML = filtered.map(r => {
+  const dailyTotals = {};
+  filtered.forEach(r => {
+    if (r.type === 'deduct') dailyTotals[r.date] = (dailyTotals[r.date] || 0) + r.amount;
+  });
+
+  let html = '';
+  let lastDate = null;
+  filtered.forEach(r => {
+    if (r.date !== lastDate) {
+      lastDate = r.date;
+      const total = dailyTotals[r.date] || 0;
+      html += `<tr class="date-summary-row"><td colspan="7">📅 ${r.date} 總花費：${total.toLocaleString()} 元</td></tr>`;
+    }
     const isTopup = r.type === 'topup';
     const bal = balById[r.id];
-    return `<tr>
+    html += `<tr>
       <td>${r.date}</td>
       <td>${r.person}</td>
       <td><span class="type-badge ${isTopup?'type-topup':'type-deduct'}">${isTopup?'儲值':'扣款'}</span></td>
@@ -804,7 +856,8 @@ function renderRecords() {
       <td>${r.note || '-'}</td>
       <td><button class="delete-btn" onclick="deleteRecordLocal('${r.id}')">刪除</button></td>
     </tr>`;
-  }).join('');
+  });
+  tbody.innerHTML = html;
 }
 
 // ══════════════════════════════════════════
@@ -837,7 +890,9 @@ async function submitTopup() {
 async function submitDeduct() {
   const date = document.getElementById('deductDate').value;
   const amount = parseInt(document.getElementById('deductAmount').value);
-  const note = document.getElementById('deductNote').value.trim();
+  const item = document.getElementById('deductNote').value;
+  const remark = document.getElementById('deductRemark').value.trim();
+  const note = remark ? item + '－' + remark : item;
   const checked = [...document.querySelectorAll('#checkList .check-item.checked')].map(el => el.querySelector('input').value);
 
   if (!date) { showToast('請選擇日期', 'error'); return; }
@@ -854,6 +909,7 @@ async function submitDeduct() {
   clearAll();
   document.getElementById('deductAmount').value = '';
   document.getElementById('deductNote').value = '中餐';
+  document.getElementById('deductRemark').value = '';
   showToast('✓ 已扣款 ' + checked.length + ' 人，每人 ' + amount + ' 元', 'success');
 
   if (isOnline) { for (const r of newRecords) await pushRecord(r); }
