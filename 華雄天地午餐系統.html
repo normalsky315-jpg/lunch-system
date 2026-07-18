@@ -680,7 +680,7 @@
 const DEFAULT_PERSONS = ['盧副總','呂冠美','宋嬌琦','林芝妍'];
 // 固定設定：部署好的 Apps Script /exec 網址，寫死在這裡後，別人打開這個 HTML
 // 就會自動連上同一份試算表，不用自己再貼一次網址。設定頁仍可覆蓋（存在 localStorage）。
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx82_9VoFeDqLbBHnI3p7c5yJgNkh2hr7h0p8g6xKkMOWVVBuuqyvukkxms61W7V3c/exec';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgkv3nKu-zII4K6xL0EFrgiKIU-ptnbWHLXSZhuvdWCKXzz7hLruERWBenBVhmxzk/exec';
 let PERSONS = JSON.parse(localStorage.getItem('hx_persons') || 'null') || [...DEFAULT_PERSONS];
 let records = JSON.parse(localStorage.getItem('hx_records') || '[]');
 let scriptUrl = localStorage.getItem('hx_script_url') || DEFAULT_SCRIPT_URL;
