@@ -1172,7 +1172,7 @@ function getAllData() {
   const rData = recSheet.getDataRange().getValues();
   const recs = rData.slice(1).filter(r=>r[0]).map(r=>({
     id: String(r[0]), type: r[1], person: r[2],
-    date: r[3], amount: Number(r[4]), note: r[5]||'', ts: Number(r[6])
+    date: formatDate_(r[3]), amount: Number(r[4]), note: r[5]||'', ts: Number(r[6])
   }));
 
   const persons = getAllMembers().filter(m => m.active).map(m => m.name);
@@ -1235,6 +1235,18 @@ function getOrCreateSheet(ss, name, headers) {
     sheet.appendRow(headers);
   }
   return sheet;
+}
+
+// 試算表會把 'YYYY-MM-DD' 字串自動轉成日期物件，讀回來要轉正，
+// 否則會用 UTC 輸出，台北時間會整整提早一天（例如 7/14 變成 7/13T16:00:00Z）
+function formatDate_(v) {
+  if (v instanceof Date) {
+    const y = v.getFullYear();
+    const m = ('0' + (v.getMonth() + 1)).slice(-2);
+    const d = ('0' + v.getDate()).slice(-2);
+    return y + '-' + m + '-' + d;
+  }
+  return String(v);
 }`;
 
 </script>
