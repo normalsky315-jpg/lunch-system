@@ -1239,8 +1239,10 @@ function getOrCreateSheet(ss, name, headers) {
 
 // 試算表會把 'YYYY-MM-DD' 字串自動轉成日期物件，讀回來要轉正，
 // 否則會用 UTC 輸出，台北時間會整整提早一天（例如 7/14 變成 7/13T16:00:00Z）
+// 用鴨子型別判斷而不是 instanceof Date，因為 Apps Script 某些情況下
+// getValues() 回傳的日期物件 instanceof Date 判斷會失效
 function formatDate_(v) {
-  if (v instanceof Date) {
+  if (v && typeof v.getFullYear === 'function' && typeof v.getMonth === 'function' && typeof v.getDate === 'function') {
     const y = v.getFullYear();
     const m = ('0' + (v.getMonth() + 1)).slice(-2);
     const d = ('0' + v.getDate()).slice(-2);
